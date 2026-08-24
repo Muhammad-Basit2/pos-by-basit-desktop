@@ -465,6 +465,24 @@ textarea:focus {
   color: var(--text-muted);
 }
 
+.connection-status {
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.connection-status.online {
+  color: var(--accent-color);
+}
+
+.connection-status.syncing {
+  color: var(--warning);
+}
+
+.connection-status.offline {
+  color: var(--danger);
+}
+
 .page-container {
   padding: 24px;
   flex: 1;

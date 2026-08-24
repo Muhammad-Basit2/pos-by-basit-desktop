@@ -17,6 +17,14 @@ npm start
 
 The application uses the Firebase web configuration in `app.js`. Firebase web configuration values are designed to be public, but production deployments must use strict Firebase Authentication and Firestore Security Rules.
 
+## Offline support
+
+After the app has loaded its data once while online, Firestore keeps a local cache in the Electron profile. Cached products, customers, suppliers, purchases, expenses, sales, and dashboard data remain available after a reload or restart without internet. Normal create, edit, and delete changes are saved locally and synchronized automatically when the connection returns. The header shows the current connection and sync state.
+
+POS sales and Udhaar payments can also be recorded offline. They are stored in a durable local outbox, shown with a provisional reference, and synchronized through an idempotent Firestore transaction when internet returns. Firestore then assigns the final invoice number and validates stock and customer balances. If synchronization fails because stock or balance data changed elsewhere, the operation remains queued for review rather than being duplicated.
+
+The first sign-in and first data load require internet. Offline sales depend on previously cached products and customers. Multiple devices should reconnect regularly so stock and customer balance conflicts are detected promptly.
+
 ## Build the Windows installer
 
 ```bash

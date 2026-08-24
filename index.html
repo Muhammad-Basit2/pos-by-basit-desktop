@@ -57,10 +57,6 @@
           <label><i class="fa-solid fa-lock"></i> Password</label>
           <input type="password" id="login-password" placeholder="••••••••" required>
         </div>
-        <label class="remember-login">
-          <input type="checkbox" id="remember-login" checked>
-          <span>Remember me</span>
-        </label>
         <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-right-to-bracket"></i> Sign
           In</button>
         <div class="auth-toggle">
@@ -160,6 +156,7 @@
           <h2 id="page-title">Dashboard</h2>
         </div>
         <div class="header-right">
+          <div id="connection-status" class="connection-status" aria-live="polite">Checking connection...</div>
           <div class="time-display" id="clock-display">00:00:00 PKT</div>
           <button id="quick-pos-btn" class="btn btn-accent"><i class="fa-solid fa-bolt"></i> Quick POS</button>
         </div>

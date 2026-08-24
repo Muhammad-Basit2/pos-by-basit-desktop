@@ -8,7 +8,8 @@ function createWindow() {
     icon: path.join(__dirname, 'assets/poslogo.png'),
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      partition: 'persist:pos-by-basit'
     }
   });
 
