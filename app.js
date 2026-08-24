@@ -85,16 +85,23 @@ let syncingOutbox = false;
 
 const OUTBOX_DB_NAME = "pos-by-basit-outbox";
 const OUTBOX_STORE_NAME = "operations";
+let outboxDatabasePromise = null;
 
-const openOutbox = () =>
-  new Promise((resolve, reject) => {
+const openOutbox = () => {
+  if (outboxDatabasePromise) return outboxDatabasePromise;
+  outboxDatabasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(OUTBOX_DB_NAME, 1);
     request.onupgradeneeded = () => {
       request.result.createObjectStore(OUTBOX_STORE_NAME, { keyPath: "opId" });
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      outboxDatabasePromise = null;
+      reject(request.error);
+    };
   });
+  return outboxDatabasePromise;
+};
 
 const readOutbox = async () => {
   const database = await openOutbox();
@@ -304,7 +311,12 @@ const syncOutbox = async () => {
         }
         await removeOutboxOperation(operation.opId);
       } catch (err) {
-        await writeOutboxOperation({ ...syncingOperation, status: "failed", error: err.message });
+        const isNetworkError = !navigator.onLine || ["unavailable", "deadline-exceeded", "network-request-failed"].includes(err.code);
+        await writeOutboxOperation({
+          ...syncingOperation,
+          status: isNetworkError ? "queued" : "failed",
+          error: err.message,
+        });
         showToast(`Sync failed: ${err.message}`, "error");
       }
       await refreshOutboxStatus();
@@ -339,14 +351,17 @@ const applyLocalOperation = (operation) => {
     if (customer) customer.balance = Math.max(0, (customer.balance || 0) - payload.amount);
     state.udhaarPayments.push({ ...payload, id: operation.opId, createdAt: new Date(), syncStatus: "Pending sync" });
     renderCustomersTable();
+    renderPosCustomerDropdown();
+    refreshDashboard();
   }
 };
 
 const queueOfflineOperation = async (type, payload) => {
-  const operation = { opId: makeOperationId(), type, payload, status: "queued", attempts: 0, createdAt: new Date().toISOString() };
-  await writeOutboxOperation(operation);
+  const operation = { opId: payload.opId || makeOperationId(), type, payload, status: "queued", attempts: 0, createdAt: new Date().toISOString() };
   applyLocalOperation(operation);
-  await refreshOutboxStatus();
+  queuedOperationCount += 1;
+  updateConnectionStatus();
+  await writeOutboxOperation(operation);
   return operation;
 };
 
@@ -1963,7 +1978,7 @@ document
           .map((part) => String(part).padStart(2, "0"))
           .join("");
         generatedInvNum = `INV-${invoiceDate}-${String(nextInvoiceSequence).padStart(4, "0")}`;
-        const newSaleRef = doc(collection(db, "sales"));
+        const newSaleRef = doc(db, "sales", operationId);
 
         transaction.set(
           invoiceCounterRef,
@@ -2019,6 +2034,20 @@ document
         document.getElementById("pos-paid-amount").value = "";
       renderCart();
     } catch (err) {
+      if (!navigator.onLine || ["unavailable", "deadline-exceeded", "network-request-failed"].includes(err.code)) {
+        await queueOfflineOperation("sale", salePayload);
+        showToast(`Sale saved offline as ${localInvoiceNumber}. It will sync when internet returns.`, "success");
+        populatePrintWindowContent(printWindow, {
+          ...salePayload,
+          invoiceNumber: localInvoiceNumber,
+          items: saleItems,
+        }, format, true);
+        state.cart = [];
+        if (document.getElementById("pos-discount-input")) document.getElementById("pos-discount-input").value = 0;
+        if (document.getElementById("pos-paid-amount")) document.getElementById("pos-paid-amount").value = "";
+        renderCart();
+        return;
+      }
       if (printWindow) printWindow.close();
       showToast(err.message, "error");
     } finally {
@@ -2159,14 +2188,37 @@ const openProductModal = (product = null) => {
 
     try {
       if (product) {
-        await updateDoc(doc(db, "products", product.id), prodData);
+        const updatedProduct = { ...product, ...prodData, id: product.id };
+        state.products = state.products.map((item) =>
+          item.id === product.id ? updatedProduct : item,
+        );
+        renderProductsTable();
+        renderPosProducts();
+        window.closeModal();
+        toggleLoader(false);
+        updateDoc(doc(db, "products", product.id), prodData).catch((err) =>
+          showToast(`Product sync failed: ${err.message}`, "error"),
+        );
         showToast("Product updated!", "success");
       } else {
         prodData.createdAt = serverTimestamp();
-        await addDoc(collection(db, "products"), prodData);
+        const productRef = doc(collection(db, "products"));
+        const localProduct = {
+          ...prodData,
+          id: productRef.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        state.products.push(localProduct);
+        renderProductsTable();
+        renderPosProducts();
+        window.closeModal();
+        toggleLoader(false);
+        setDoc(productRef, prodData).catch((err) =>
+          showToast(`Product sync failed: ${err.message}`, "error"),
+        );
         showToast("Product added!", "success");
       }
-      window.closeModal();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -2321,14 +2373,38 @@ const openCustomerFormModal = (customer = null) => {
         updatedAt: serverTimestamp(),
       };
       if (customer) {
-        await updateDoc(doc(db, "customers", customer.id), data);
+        const updatedCustomer = { ...customer, ...data, id: customer.id };
+        state.customers = state.customers.map((item) =>
+          item.id === customer.id ? updatedCustomer : item,
+        );
+        renderCustomersTable();
+        renderPosCustomerDropdown();
+        refreshDashboard();
+        window.closeModal();
+        toggleLoader(false);
+        updateDoc(doc(db, "customers", customer.id), data).catch((err) =>
+          showToast(`Customer sync failed: ${err.message}`, "error"),
+        );
         showToast("Customer updated!", "success");
       } else {
         data.createdAt = serverTimestamp();
-        await addDoc(collection(db, "customers"), data);
+        const customerRef = doc(collection(db, "customers"));
+        state.customers.push({
+          ...data,
+          id: customerRef.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        renderCustomersTable();
+        renderPosCustomerDropdown();
+        refreshDashboard();
+        window.closeModal();
+        toggleLoader(false);
+        setDoc(customerRef, data).catch((err) =>
+          showToast(`Customer sync failed: ${err.message}`, "error"),
+        );
         showToast("Customer added!", "success");
       }
-      window.closeModal();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -2351,7 +2427,13 @@ window.editCustomerModal = (id) => {
 
 window.deleteCustomer = async (id) => {
   if (await showDeleteConfirmation("This customer and their Udhaar record will be permanently removed.")) {
-    await deleteDoc(doc(db, "customers", id));
+    state.customers = state.customers.filter((customer) => customer.id !== id);
+    renderCustomersTable();
+    renderPosCustomerDropdown();
+    refreshDashboard();
+    deleteDoc(doc(db, "customers", id)).catch((err) =>
+      showToast(`Customer delete sync failed: ${err.message}`, "error"),
+    );
     showToast("Customer deleted.", "info");
   }
 };
@@ -2457,7 +2539,7 @@ window.receiveCustomerPayment = async (id) => {
         if (amount > currentBalance)
           throw new Error("Payment exceeds current Udhaar balance.");
 
-        const paymentRef = doc(collection(db, "udhaarPayments"));
+        const paymentRef = doc(db, "udhaarPayments", operationId);
         transaction.update(customerRef, {
           balance: Math.max(0, currentBalance - amount),
         });
@@ -2478,6 +2560,15 @@ window.receiveCustomerPayment = async (id) => {
         printReceivedPayment({ cust, amount, fromDate, toDate, note });
       }
     } catch (err) {
+      if (!navigator.onLine || ["unavailable", "deadline-exceeded", "network-request-failed"].includes(err.code)) {
+        await queueOfflineOperation("udhaarPayment", paymentPayload);
+        window.closeModal();
+        showToast("Udhaar payment saved offline. It will sync when internet returns.", "success");
+        if (event.submitter?.dataset.printPayment === "true") {
+          printReceivedPayment({ cust, amount, fromDate, toDate, note });
+        }
+        return;
+      }
       showToast(err.message, "error");
     } finally {
       toggleLoader(false);
@@ -3017,15 +3108,37 @@ const openPurchaseFormModal = (purchase = null) => {
       };
 
       if (purchase) {
-        await updateDoc(doc(db, "purchases", purchase.id), data);
+        state.purchases = state.purchases.map((item) =>
+          item.id === purchase.id
+            ? { ...item, ...data, id: purchase.id, createdAt: item.createdAt || new Date() }
+            : item,
+        );
+        renderPurchasesTable();
+        refreshDashboard();
+        window.closeModal();
+        toggleLoader(false);
+        updateDoc(doc(db, "purchases", purchase.id), data).catch((err) =>
+          showToast(`Purchase sync failed: ${err.message}`, "error"),
+        );
         showToast("Purchase updated!", "success");
       } else {
         data.createdAt = serverTimestamp();
-        await addDoc(collection(db, "purchases"), data);
+        const purchaseRef = doc(collection(db, "purchases"));
+        state.purchases.push({
+          ...data,
+          id: purchaseRef.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        renderPurchasesTable();
+        refreshDashboard();
+        window.closeModal();
+        toggleLoader(false);
+        setDoc(purchaseRef, data).catch((err) =>
+          showToast(`Purchase sync failed: ${err.message}`, "error"),
+        );
         showToast("Purchase created!", "success");
       }
-
-      window.closeModal();
     } catch (err) {
       showToast(err.message, "error");
     } finally {
