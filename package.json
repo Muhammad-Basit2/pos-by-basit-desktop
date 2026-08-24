@@ -28,7 +28,8 @@
       "output": "dist"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "assets/poslogo.ico"
     },
     "nsis": {
       "oneClick": false,
