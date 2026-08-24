@@ -1,0 +1,39 @@
+{
+  "name": "pos-by-basit-desktop",
+  "version": "1.0.0",
+  "description": "Desktop point-of-sale and inventory management system for retail businesses.",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dist": "electron-builder --win"
+  },
+  "keywords": [
+    "electron",
+    "point-of-sale",
+    "inventory",
+    "retail"
+  ],
+  "author": "Basit",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.basit.posdesktop",
+    "productName": "POS By Basit",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

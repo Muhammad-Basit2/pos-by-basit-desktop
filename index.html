@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS BY BASIT - Retail & Inventory Management System</title>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts: Inter & Noto Nastaliq Urdu -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="dark-mode">
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Loading Overlay -->
+  <div id="global-loader" class="loader-overlay hidden">
+    <div class="spinner"></div>
+    <p id="loader-text">Processing transaction...</p>
+  </div>
+
+  <!-- Modal Overlay Container -->
+  <div id="modal-container" class="modal-overlay hidden">
+    <div class="modal-card" id="modal-content">
+      <!-- Dynamic Content Injected Here -->
+    </div>
+  </div>
+
+  <!-- AUTH SECTION (Login / Setup) -->
+  <div id="auth-screen" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-logo"><i class="fa-solid fa-cash-register"></i> POS BY BASIT</div>
+        <p class="auth-subtitle">Pakistani Retail & Inventory Management System</p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form">
+        <h3>Login to your Shop</h3>
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+          <input type="email" id="login-email" placeholder="owner@store.pk" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" required>
+        </div>
+        <label class="remember-login">
+          <input type="checkbox" id="remember-login" checked>
+          <span>Remember me</span>
+        </label>
+        <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-right-to-bracket"></i> Sign
+          In</button>
+        <div class="auth-toggle">
+          <span>Need a new account? <a href="#" id="show-register">Register Shop</a></span>
+        </div>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="auth-form hidden">
+        <h3>Create Business Account</h3>
+        <div class="form-group">
+          <label><i class="fa-solid fa-user"></i> Owner Full Name</label>
+          <input type="text" id="reg-name" placeholder="Muhammad Ali" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-store"></i> Shop / Business Name</label>
+          <input type="text" id="reg-shop" placeholder="Bismillah General Store" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+          <input type="email" id="reg-email" placeholder="owner@store.pk" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> Password</label>
+          <input type="password" id="reg-password" placeholder="At least 6 characters" minlength="6" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-user-plus"></i> Register
+          Store</button>
+        <div class="auth-toggle">
+          <span>Already registered? <a href="#" id="show-login">Sign In</a></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP WRAPPER -->
+  <div id="app-screen" class="app-wrapper hidden">
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand"><i class="fa-solid fa-cash-register"></i> <span>POS BY BASIT</span></div>
+        <button id="sidebar-close-btn" class="icon-btn mobile-only"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="shop-badge">
+        <i class="fa-solid fa-shop"></i>
+        <div class="shop-badge-info">
+          <span id="sidebar-shop-name" class="shop-name">Loading Store...</span>
+          <span id="sidebar-user-role" class="user-role">Admin</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <ul>
+          <li><a href="#" data-page="dashboard" class="nav-link active"><i class="fa-solid fa-chart-line"></i>
+              <span>Dashboard</span></a></li>
+          <li><a href="#" data-page="pos" class="nav-link"><i class="fa-solid fa-calculator"></i> <span>POS
+                Terminal</span></a></li>
+          <li><a href="#" data-page="products" class="nav-link"><i class="fa-solid fa-boxes-stacked"></i>
+              <span>Inventory</span></a></li>
+          <li><a href="#" data-page="purchases" class="nav-link"><i class="fa-solid fa-truck-ramp-box"></i>
+              <span>Purchases</span></a></li>
+          <li><a href="#" data-page="sales-history" class="nav-link"><i class="fa-solid fa-receipt"></i> <span>Sales
+                History</span></a></li>
+          <li><a href="#" data-page="customers" class="nav-link"><i class="fa-solid fa-users"></i> <span>Customers /
+                Udhaar</span></a></li>
+          <li><a href="#" data-page="suppliers" class="nav-link"><i class="fa-solid fa-handshake"></i>
+              <span>Suppliers</span></a></li>
+          <li><a href="#" data-page="expenses" class="nav-link"><i class="fa-solid fa-wallet"></i>
+              <span>Expenses</span></a></li>
+          <li><a href="#" data-page="reports" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i>
+              <span>Reports</span></a></li>
+            <li><a href="#" data-page="delete-records" class="nav-link"><i class="fa-solid fa-trash-can"></i>
+              <span>Delete Records</span></a></li>
+          <li><a href="#" data-page="settings" class="nav-link"><i class="fa-solid fa-gear"></i>
+              <span>Settings</span></a></li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="theme-toggle" class="btn btn-sm btn-secondary"><i class="fa-solid fa-sun"></i> <span>Light
+          Mode</span></button>
+        <button id="logout-btn" class="btn btn-sm btn-danger"><i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Logout</span></button>
+      </div>
+    </aside>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Navbar -->
+      <header class="top-header">
+        <div class="header-left">
+          <button id="mobile-hamburger" class="icon-btn mobile-only"><i class="fa-solid fa-bars"></i></button>
+          <h2 id="page-title">Dashboard</h2>
+        </div>
+        <div class="header-right">
+          <div class="time-display" id="clock-display">00:00:00 PKT</div>
+          <button id="quick-pos-btn" class="btn btn-accent"><i class="fa-solid fa-bolt"></i> Quick POS</button>
+        </div>
+      </header>
+
+      <div id="page-container" class="page-container">
+
+        <!-- DASHBOARD PAGE -->
+        <section id="page-dashboard" class="page-view active">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-icon bg-blue"><i class="fa-solid fa-cash-register"></i></div>
+              <div class="metric-info">
+                <span class="label">Today's Sales</span>
+                <h3 id="dash-today-sales">Rs. 0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-green"><i class="fa-solid fa-chart-pie"></i></div>
+              <div class="metric-info">
+                <span class="label">Today's Est. Profit</span>
+                <h3 id="dash-today-profit">Rs. 0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-purple"><i class="fa-solid fa-cart-shopping"></i></div>
+              <div class="metric-info">
+                <span class="label">Today's Orders</span>
+                <h3 id="dash-today-orders">0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-orange"><i class="fa-solid fa-truck-loading"></i></div>
+              <div class="metric-info">
+                <span class="label">Today's Purchases</span>
+                <h3 id="dash-today-purchases">Rs. 0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-teal"><i class="fa-solid fa-boxes-packing"></i></div>
+              <div class="metric-info">
+                <span class="label">Total Products</span>
+                <h3 id="dash-total-products">0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="metric-info">
+                <span class="label">Low / Out Stock</span>
+                <h3 id="dash-low-stock-count">0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-amber"><i class="fa-solid fa-vault"></i></div>
+              <div class="metric-info">
+                <span class="label">Total Stock Value</span>
+                <h3 id="dash-stock-value">Rs. 0</h3>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon bg-indigo"><i class="fa-solid fa-users"></i></div>
+              <div class="metric-info">
+                <span class="label">Customers / Receivables</span>
+                <h3 id="dash-total-receivables">Rs. 0</h3>
+              </div>
+            </div>
+          </div>
+
+          <div class="charts-grid">
+            <div class="card chart-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-chart-area"></i> Sales Trend (Last 7 Days)</h3>
+              </div>
+              <div class="card-body">
+                <canvas id="sales-chart" height="250"></canvas>
+              </div>
+            </div>
+            <div class="card chart-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-fire"></i> Top Selling Items</h3>
+              </div>
+              <div class="card-body">
+                <canvas id="top-products-chart" height="250"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- POS TERMINAL PAGE -->
+        <section id="page-pos" class="page-view">
+          <div class="pos-layout">
+            <!-- Left Side: Catalog & Search -->
+            <div class="pos-left">
+              <div class="pos-search-bar">
+                <div class="input-with-icon">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="text" id="pos-search" placeholder="Search product by name, SKU, or scan barcode..."
+                    autofocus>
+                </div>
+                <select id="pos-category-filter">
+                  <option value="ALL">All Categories</option>
+                </select>
+              </div>
+
+              <!-- Quick Category Chips -->
+              <div id="pos-category-chips" class="category-chips"></div>
+
+              <!-- Product Grid -->
+              <div id="pos-product-grid" class="product-grid">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+
+            <!-- Right Side: Cart -->
+            <div class="pos-right card">
+              <div class="cart-header">
+                <h3><i class="fa-solid fa-cart-flatbed"></i> Current Invoice Cart</h3>
+                <button id="pos-clear-cart" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i>
+                  Clear</button>
+              </div>
+
+              <!-- Customer Selector -->
+              <div class="cart-customer-select">
+                <input type="text" id="pos-customer-search" placeholder="Search customers...">
+                <select id="pos-customer-select">
+                  <option value="WALKIN">Walk-in Customer (Grahak)</option>
+                </select>
+                <button id="pos-add-customer-btn" class="btn btn-sm btn-secondary" title="Add New Customer"><i
+                    class="fa-solid fa-user-plus"></i></button>
+              </div>
+
+              <!-- Cart Items List -->
+              <div id="pos-cart-items" class="cart-items-container">
+                <div class="empty-state">
+                  <i class="fa-solid fa-basket-shopping"></i>
+                  <p>Cart is empty. Select items to add.</p>
+                </div>
+              </div>
+
+              <!-- Cart Summary Calculation -->
+              <div class="cart-summary">
+                <div class="summary-row">
+                  <span>Subtotal</span>
+                  <span id="pos-subtotal">Rs. 0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span>Discount (Fixed / %)</span>
+                  <input type="number" id="pos-discount-input" min="0" value="0"
+                    style="width: 80px; text-align: right;">
+                </div>
+                <div class="summary-row">
+                  <span>Sales Tax (GST %)</span>
+                  <input type="number" id="pos-tax-input" min="0" value="0" style="width: 60px; text-align: right;">
+                </div>
+                <div class="summary-row grand-total">
+                  <span>Grand Total</span>
+                  <span id="pos-grand-total">Rs. 0.00</span>
+                </div>
+
+                <!-- Payment Method & Paid Amount -->
+                <div class="payment-controls">
+                  <div class="form-group">
+                    <label>Payment Method</label>
+                    <select id="pos-payment-method">
+                      <option value="Cash">Cash (Nqd)</option>
+                      <option value="JazzCash">JazzCash</option>
+                      <option value="Easypaisa">Easypaisa</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Card">Credit / Debit Card</option>
+                      <option value="Credit / Udhaar">Credit / Udhaar</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Paid Amount (Rs.)</label>
+                    <input type="number" id="pos-paid-amount" placeholder="0.00">
+                  </div>
+                </div>
+
+                <div class="summary-row due-change">
+                  <span>Change Due: <strong id="pos-change-due" class="text-green">Rs. 0.00</strong></span>
+                  <span>Balance Due: <strong id="pos-balance-due" class="text-red">Rs. 0.00</strong></span>
+                </div>
+
+                <div class="print-actions">
+                  <label for="pos-print-format">Print Format</label>
+                  <select id="pos-print-format" class="print-format-select">
+                    <option value="thermal">Thermal (80mm)</option>
+                    <option value="A4">A4 (210x297mm)</option>
+                    <option value="A5">A5 (148x210mm)</option>
+                  </select>
+                  <button id="pos-print-preview-btn" class="btn btn-secondary btn-sm">Preview</button>
+                </div>
+
+                <button id="pos-checkout-btn" class="btn btn-accent btn-block btn-lg"><i
+                    class="fa-solid fa-circle-check"></i> Complete Sale & Print Invoice</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- INVENTORY / PRODUCTS PAGE -->
+        <section id="page-products" class="page-view">
+          <div class="table-actions">
+            <div class="search-filter-group">
+              <input type="text" id="product-search-input" placeholder="Search products...">
+              <select id="product-category-filter">
+                <option value="ALL">All Categories</option>
+              </select>
+            </div>
+            <div class="button-group">
+              <button id="add-product-btn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Product</button>
+              <button id="manage-categories-btn" class="btn btn-secondary"><i class="fa-solid fa-layer-group"></i>
+                Categories</button>
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Barcode/SKU</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Unit</th>
+                    <th>Cost Price</th>
+                    <th>Selling Price</th>
+                    <th>Current Stock</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="products-table-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- PURCHASES PAGE -->
+        <section id="page-purchases" class="page-view">
+          <div class="table-actions">
+            <h3><i class="fa-solid fa-truck-ramp-box"></i> Purchase Stock from Suppliers</h3>
+            <button id="new-purchase-btn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Record New Stock
+              Purchase</button>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Inv #</th>
+                    <th>Date</th>
+                    <th>Supplier</th>
+                    <th>Total Bill</th>
+                    <th>Paid Amount</th>
+                    <th>Balance Due</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="purchases-table-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SALES HISTORY PAGE -->
+        <section id="page-sales-history" class="page-view">
+          <div class="table-actions">
+            <div class="search-filter-group">
+              <input type="text" id="sales-search-input" placeholder="Search by Invoice # or Customer...">
+              <input type="date" id="sales-date-filter">
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Date & Time</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Grand Total</th>
+                    <th>Payment Method</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="sales-table-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- CUSTOMERS / UDHAAR PAGE -->
+        <section id="page-customers" class="page-view">
+          <div class="table-actions">
+            <input type="text" id="customer-search-input" placeholder="Search customer name or phone...">
+            <button id="add-customer-btn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add
+              Customer</button>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Customer Name</th>
+                    <th>Phone</th>
+                    <th>CNIC</th>
+                    <th>Current Balance (Udhaar)</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="customers-table-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUPPLIERS PAGE -->
+        <section id="page-suppliers" class="page-view">
+          <div class="table-actions">
+            <div style="display:flex; gap:12px; align-items:center; width:100%;">
+              <input type="text" id="supplier-search-input" placeholder="Search supplier or company..." style="flex:1;">
+
+              <div style="display:flex; gap:8px; align-items:center;">
+                <div class="chip" style="background:var(--card-bg);">
+                  <strong>Total Paid:</strong>
+                  <div id="suppliers-total-paid" style="margin-left:8px; font-weight:700;">Rs. 0</div>
+                </div>
+                <div class="chip" style="background:var(--card-bg);">
+                  <strong>Total Payable:</strong>
+                  <div id="suppliers-total-payable" style="margin-left:8px; font-weight:700; color:var(--danger);">Rs. 0
+                  </div>
+                </div>
+                <button id="add-supplier-btn" class="btn btn-primary"><i class="fa-solid fa-handshake-angle"></i> Add
+                  Supplier</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Company / Supplier Name</th>
+                    <th>Contact Person</th>
+                    <th>Phone</th>
+                    <th>Total Paid</th>
+                    <th>Payable Balance</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="suppliers-table-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- EXPENSES PAGE -->
+        <section id="page-expenses" class="page-view">
+          <div class="table-actions">
+            <h3><i class="fa-solid fa-receipt"></i> Store Expenses (Electricity, Rent, Salaries)</h3>
+            <button id="add-expense-btn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Expense
+              Entry</button>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Title / Reason</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="expenses-table-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- REPORTS PAGE -->
+        <section id="page-reports" class="page-view">
+          <div class="report-filters card">
+            <h3><i class="fa-solid fa-filter"></i> Generate Financial Reports</h3>
+            <div class="report-form-row">
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="report-start-date">
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="report-end-date">
+              </div>
+              <button id="generate-report-btn" class="btn btn-accent"><i class="fa-solid fa-sliders"></i> Generate
+                Report</button>
+            </div>
+          </div>
+
+          <div class="report-summary-cards">
+            <div class="metric-card">
+              <span class="label">Total Sales Revenue</span>
+              <h3 id="rep-total-sales">Rs. 0</h3>
+            </div>
+            <div class="metric-card">
+              <span class="label">Cost of Goods Sold (COGS)</span>
+              <h3 id="rep-total-cogs">Rs. 0</h3>
+            </div>
+            <div class="metric-card">
+              <span class="label">Total Expenses</span>
+              <h3 id="rep-total-expenses">Rs. 0</h3>
+            </div>
+            <div class="metric-card">
+              <span class="label">Net Estimated Profit</span>
+              <h3 id="rep-net-profit" class="text-green">Rs. 0</h3>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETTINGS PAGE -->
+        <section id="page-settings" class="page-view">
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-store"></i> Shop & Receipt Profile</h3>
+              </div>
+              <div class="card-body">
+                <form id="settings-form">
+                  <div class="form-group">
+                    <label>Shop Name</label>
+                    <input type="text" id="set-shop-name" placeholder="Bismillah General Store" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" id="set-shop-phone" placeholder="0300-1234567" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Shop Address</label>
+                    <input type="text" id="set-shop-address" placeholder="Main Bazaar, Lahore">
+                  </div>
+                  <div class="form-group">
+                    <label for="set-shop-logo">Invoice Logo (Optional)</label>
+                    <input type="file" id="set-shop-logo" accept="image/png,image/jpeg,image/webp,image/gif">
+                    <small class="settings-help">Your logo will print on all invoices. If empty, your shop name will be shown.</small>
+                    <img id="shop-logo-preview" class="shop-logo-preview hidden" alt="Shop logo preview">
+                    <label class="logo-remove-option">
+                      <input type="checkbox" id="set-remove-logo">
+                      <span>Remove current logo</span>
+                    </label>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>NTN Number (Optional)</label>
+                      <input type="text" id="set-shop-ntn" placeholder="1234567-8">
+                    </div>
+                    <div class="form-group">
+                      <label>Default GST/Tax (%)</label>
+                      <input type="number" id="set-shop-tax" value="0">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Invoice Footer Message</label>
+                    <input type="text" id="set-invoice-footer"
+                      value="Thank you for shopping with us! Phir Tashreef Layen.">
+                  </div>
+                  <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Shop
+                    Settings</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-database"></i> Backup & Demo Data</h3>
+              </div>
+              <div class="card-body">
+                <p>Quickly seed your inventory with common Pakistani retail items (Sugar, Atta, Rice, Milk, Oil, Tea) to
+                  test out the system immediately.</p>
+                <button id="load-demo-data-btn" class="btn btn-accent" style="margin-bottom: 20px;"><i
+                    class="fa-solid fa-vial"></i> Load Pakistani Demo Inventory</button>
+                <hr>
+                <h4>CSV Export Capabilities</h4>
+                <div class="button-group" style="margin-top: 10px;">
+                  <button id="export-products-csv" class="btn btn-secondary"><i class="fa-solid fa-file-csv"></i> Export
+                    Products CSV</button>
+                  <button id="export-sales-csv" class="btn btn-secondary"><i class="fa-solid fa-file-csv"></i> Export
+                    Sales CSV</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DELETE RECORDS PAGE -->
+        <section id="page-delete-records" class="page-view">
+          <div class="card delete-records-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-trash-can"></i> Delete Records</h3>
+            </div>
+            <div class="card-body">
+              <p class="text-muted">Select one record to permanently remove it from your store.</p>
+              <div class="delete-records-form">
+                <div class="form-group">
+                  <label for="delete-record-type">Record Type</label>
+                  <select id="delete-record-type">
+                    <option value="products">Product</option>
+                    <option value="customers">Customer</option>
+                    <option value="suppliers">Supplier</option>
+                    <option value="purchases">Purchase Invoice</option>
+                    <option value="expenses">Expense</option>
+                    <option value="sales">Sale / Invoice</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="delete-record-search">Search Record</label>
+                  <input type="search" id="delete-record-search" placeholder="Search by name, phone, invoice...">
+                </div>
+                <div class="form-group">
+                  <label for="delete-record-select">Record to Delete</label>
+                  <select id="delete-record-select" size="6"></select>
+                </div>
+                <button id="delete-record-btn" type="button" class="btn btn-danger">
+                  <i class="fa-solid fa-trash-can"></i> Delete Selected Record
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- PRINTABLE INVOICE CONTAINER (Hidden from screen view, shown on print) -->
+  <div id="printable-invoice" class="printable-invoice hidden">
+    <div class="invoice-box">
+      <div class="inv-header">
+        <h2 id="inv-shop-name">Bismillah Store</h2>
+        <p id="inv-shop-address">Main Commercial Area</p>
+        <p>Ph: <span id="inv-shop-phone">0300-0000000</span> | NTN: <span id="inv-shop-ntn">N/A</span></p>
+      </div>
+      <hr>
+      <div class="inv-meta">
+        <div><strong>Invoice #:</strong> <span id="inv-number">INV-1001</span></div>
+        <div><strong>Date:</strong> <span id="inv-date">2026-03-30</span></div>
+        <div><strong>Customer:</strong> <span id="inv-customer">Walk-in Customer</span></div>
+        <div><strong>Payment:</strong> <span id="inv-payment-type">Cash</span></div>
+      </div>
+      <hr>
+      <table class="inv-items-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="text-right">Qty</th>
+            <th class="text-right">Rate</th>
+            <th class="text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody id="inv-items-body">
+          <!-- Injected via JS -->
+        </tbody>
+      </table>
+      <hr>
+      <div class="inv-totals">
+        <div class="inv-row"><span>Subtotal:</span><span id="inv-subtotal">Rs. 0</span></div>
+        <div class="inv-row"><span>Discount:</span><span id="inv-discount">Rs. 0</span></div>
+        <div class="inv-row"><span>Tax/GST:</span><span id="inv-tax">Rs. 0</span></div>
+        <div class="inv-row grand"><span>Grand Total:</span><span id="inv-grand-total">Rs. 0</span></div>
+        <div class="inv-row"><span>Paid Amount:</span><span id="inv-paid">Rs. 0</span></div>
+        <div class="inv-row"><span>Balance Due / Change:</span><span id="inv-due-change">Rs. 0</span></div>
+      </div>
+      <hr>
+      <div class="inv-footer">
+        <p id="inv-footer-msg">Thank you for shopping with us!</p>
+        <p class="urdu-text" dir="auto">آپ کے تعاون کا شکریہ!</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+
+</html>
