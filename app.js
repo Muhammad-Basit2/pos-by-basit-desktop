@@ -1446,8 +1446,10 @@ const renderSalesHistoryTable = () => {
     const tr = document.createElement("tr");
     const saleDate = s.createdAt?.toDate ? s.createdAt.toDate() : s.createdAt instanceof Date ? s.createdAt : null;
     const dateStr = saleDate ? saleDate.toLocaleString() : "N/A";
-    const statusLabel = s.syncStatus || "Completed";
-    const statusClass = s.syncStatus ? "bg-orange" : "bg-green";
+    const hasReturns = Array.isArray(s.returnedItems) && s.returnedItems.length > 0;
+    const isFullyReturned = s.returned || s.returnStatus === "Returned" || (hasReturns && (s.items || []).reduce((sum, item) => sum + Number(item.qty ?? item.normalizedQty ?? 0), 0) <= s.returnedItems.reduce((sum, item) => sum + Number(item.returnQty || 0), 0));
+    const statusLabel = isFullyReturned ? "Returned" : (hasReturns ? "Partially Returned" : (s.syncStatus || "Completed"));
+    const statusClass = isFullyReturned ? "bg-red" : (hasReturns ? "bg-orange" : "bg-green");
     tr.innerHTML = `
       <td><strong>${s.invoiceNumber}</strong></td>
       <td>${dateStr}</td>
@@ -1458,6 +1460,7 @@ const renderSalesHistoryTable = () => {
       <td><span class="chip ${statusClass}" style="color:#fff;">${statusLabel}</span></td>
       <td>
         <button class="btn btn-sm btn-secondary" onclick='window.reprintInvoice(${JSON.stringify(s)})'><i class="fa-solid fa-print"></i></button>
+        ${isFullyReturned ? '<span class="chip bg-red" style="margin-left:8px;">Closed</span>' : `<button class="btn btn-sm btn-danger" style="margin-left:8px;" onclick='window.openReturnItemsModal(${JSON.stringify(s)})'><i class="fa-solid fa-rotate-left"></i> Return Items</button>`}
       </td>
     `;
     tbody.appendChild(tr);
@@ -1469,6 +1472,286 @@ window.reprintInvoice = (saleObj) => {
     document.getElementById("pos-print-format")?.value || "thermal";
   const printWindow = window.open("", "_blank", "width=400,height=600");
   populatePrintWindowContent(printWindow, saleObj, format, true);
+};
+
+const populateReturnPrintWindowContent = (
+  printWindow,
+  returnData,
+  format = "thermal",
+  autoPrint = true,
+) => {
+  if (!printWindow) return;
+
+  const itemsHtml = (returnData.items || [])
+    .map((item, index) => {
+      const qty = Number(item.qty ?? item.normalizedQty ?? 0);
+      const lineTotal = Number(item.lineTotal ?? (qty * (item.sellingPrice || 0)) ?? 0);
+      return `
+        <tr>
+          <td style="padding:6px 4px;">${index + 1}</td>
+          <td style="padding:6px 4px;">${item.name}</td>
+          <td style="padding:6px 4px; text-align:center;">${qty} ${item.unit || "pcs"}</td>
+          <td style="padding:6px 4px; text-align:right;">${formatCurrency(lineTotal)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const pageCss =
+    format === "A4"
+      ? "@page { size: A4 portrait; margin: 8mm; }"
+      : format === "A5"
+        ? "@page { size: A5 portrait; margin: 8mm; }"
+        : "@page { size: 80mm auto; margin: 3mm; }";
+
+  const bodyStyle =
+    format === "A4" || format === "A5"
+      ? "width:100%; max-width: 180mm; font-family: Arial, sans-serif; font-size:12px;"
+      : "width:80mm; font-family: monospace; font-size:11px;";
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Return Slip - ${returnData.invoiceNumber}</title>
+        <meta charset="utf-8">
+        <style>
+          ${pageCss}
+          body { ${bodyStyle} color:#17212b; padding:8px; }
+          h2, p { text-align: center; margin:4px 0; }
+          h2 { color:#dc2626; font-size:20px; }
+          .header { border-bottom:1px dashed #94a3b8; padding-bottom:8px; margin-bottom:8px; }
+          table { width:100%; border-collapse:collapse; margin-top:10px; }
+          td { padding:5px 0; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+          .totals { margin-top:10px; border-top:1px solid #0f172a; padding-top:8px; }
+          .row { display:flex; justify-content:space-between; margin:4px 0; }
+          .grand { font-weight:bold; font-size:13px; color:#dc2626; }
+          .rule { color:#94a3b8; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>RETURN SLIP</h2>
+          <p>${currentBusiness?.shopName || "PakPOS Store"}</p>
+          <p>Invoice: ${returnData.invoiceNumber}</p>
+          <p>Customer: ${returnData.customerName || "Walk-in Customer"}</p>
+        </div>
+
+        <div class="rule">--------------------------------</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left;">#</th>
+              <th style="text-align:left;">Item</th>
+              <th style="text-align:center;">Qty</th>
+              <th style="text-align:right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        <div class="totals">
+          <div class="row"><span>Return Total</span><span>${formatCurrency(returnData.returnTotal || returnData.grandTotal || 0)}</span></div>
+          <div class="row grand"><span>Refund</span><span>${formatCurrency(returnData.returnTotal || returnData.grandTotal || 0)}</span></div>
+        </div>
+        <p style="margin-top:12px;">Thank you for shopping with us.</p>
+        <p>Restocked automatically to inventory.</p>
+        <script>
+          ${autoPrint ? "window.onload = () => { setTimeout(() => { window.print(); }, 200); };" : ""}
+        <\/script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
+const openReturnItemsModal = (saleObj) => {
+  const modalContainer = document.getElementById("modal-container");
+  const modalContent = document.getElementById("modal-content");
+  if (!modalContainer || !modalContent) return;
+
+  const saleItems = saleObj.items || [];
+  const existingReturns = saleObj.returnedItems || [];
+
+  const rowsHtml = saleItems
+    .map((item) => {
+      const soldQty = Number(item.qty ?? item.normalizedQty ?? 0);
+      const alreadyReturned = existingReturns
+        .filter((entry) => entry.productId === item.productId)
+        .reduce((sum, entry) => sum + Number(entry.returnQty || 0), 0);
+      const remainingQty = Math.max(0, soldQty - alreadyReturned);
+      const unitStep = item.unit === "KG" || item.unit === "Gram" ? "0.05" : "1";
+
+      return `
+        <div class="return-item-row" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid #e2e8f0;">
+          <div style="flex:1;">
+            <div style="font-weight:700; margin-bottom:4px;">${item.name}</div>
+            <div style="font-size:12px; color:#64748b;">Sold: ${soldQty} ${item.unit || "pcs"} • Remaining: ${remainingQty} ${item.unit || "pcs"}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label style="font-size:12px; color:#64748b;">Return Qty</label>
+            <input type="number" min="0" max="${remainingQty}" step="${unitStep}" value="0" data-return-index="${item.productId || item.name}" data-max-qty="${remainingQty}" style="width:90px; text-align:center;">
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  modalContent.innerHTML = `
+    <div class="delete-confirm-modal" style="width:min(620px,90vw);">
+      <div class="delete-confirm-icon" style="background:rgba(220,38,38,.12); color:#dc2626;"><i class="fa-solid fa-rotate-left"></i></div>
+      <h3>Return Selected Items</h3>
+      <p style="margin-bottom:16px;">Invoice: <strong>${saleObj.invoiceNumber}</strong></p>
+      <div style="max-height:340px; overflow:auto; margin-bottom:16px;">
+        ${rowsHtml || '<p>No items available to return.</p>'}
+      </div>
+      <div class="delete-confirm-actions">
+        <button type="button" class="btn btn-secondary" id="return-items-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="return-items-confirm"><i class="fa-solid fa-rotate-left"></i> Return Selected Items</button>
+      </div>
+    </div>
+  `;
+
+  modalContainer.classList.remove("hidden");
+
+  document.getElementById("return-items-cancel")?.addEventListener("click", () => window.closeModal());
+  document.getElementById("return-items-confirm")?.addEventListener("click", async () => {
+    const returnSelections = saleItems
+      .map((item) => {
+        const soldQty = Number(item.qty ?? item.normalizedQty ?? 0);
+        const existingReturns = (saleObj.returnedItems || []).filter((entry) => entry.productId === item.productId);
+        const alreadyReturned = existingReturns.reduce((sum, entry) => sum + Number(entry.returnQty || 0), 0);
+        const remainingQty = Math.max(0, soldQty - alreadyReturned);
+        const input = modalContent.querySelector(`input[data-return-index="${item.productId || item.name}"]`);
+        const returnQty = Number(input?.value || 0);
+        if (returnQty <= 0 || returnQty > remainingQty) return null;
+        const normalizedReturnQty = normalizeToStandardUnit(returnQty, item.unit);
+        const lineTotal = Number((returnQty * (item.sellingPrice || 0)).toFixed(2));
+        return {
+          productId: item.productId,
+          name: item.name,
+          unit: item.unit,
+          qty: returnQty,
+          normalizedQty: normalizedReturnQty,
+          sellingPrice: item.sellingPrice,
+          purchasePrice: item.purchasePrice,
+          lineTotal,
+        };
+      })
+      .filter(Boolean);
+
+    if (!returnSelections.length) {
+      showToast("Select at least one valid quantity to return.", "error");
+      return;
+    }
+
+    window.closeModal();
+    await window.processSaleReturn(saleObj, returnSelections);
+  });
+};
+
+window.openReturnItemsModal = openReturnItemsModal;
+
+window.processSaleReturn = async (saleObj, selectedItems = []) => {
+  if (!saleObj || !(saleObj.items || []).length) {
+    showToast("No items available to return.", "error");
+    return;
+  }
+
+  const finalSelectedItems = selectedItems.length ? selectedItems : (saleObj.items || []).map((item) => {
+    const soldQty = Number(item.qty ?? item.normalizedQty ?? 0);
+    const remainingQty = Math.max(0, soldQty - Number((saleObj.returnedItems || []).filter((entry) => entry.productId === item.productId).reduce((sum, entry) => sum + Number(entry.returnQty || 0), 0)));
+    const normalizedQty = normalizeToStandardUnit(remainingQty, item.unit);
+    return {
+      productId: item.productId,
+      name: item.name,
+      unit: item.unit,
+      qty: remainingQty,
+      normalizedQty,
+      sellingPrice: item.sellingPrice,
+      purchasePrice: item.purchasePrice,
+      lineTotal: Number((remainingQty * (item.sellingPrice || 0)).toFixed(2)),
+    };
+  });
+
+  const returnTotal = finalSelectedItems.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+
+  if (!finalSelectedItems.length || returnTotal <= 0) {
+    showToast("Please choose at least one item to return.", "error");
+    return;
+  }
+
+  const format = document.getElementById("pos-print-format")?.value || "thermal";
+  const printWindow = window.open("", "_blank", "width=400,height=600");
+
+  toggleLoader(true, "Processing item return & restocking...");
+
+  try {
+    const existingReturns = Array.isArray(saleObj.returnedItems) ? saleObj.returnedItems : [];
+    for (const item of finalSelectedItems) {
+      const normalizedQty = Number(item.normalizedQty || 0);
+      if (!normalizedQty) continue;
+
+      const product = state.products.find((entry) => entry.id === item.productId);
+      if (product) {
+        product.currentStock = Number(product.currentStock || 0) + normalizedQty;
+      }
+
+      if (item.productId && navigator.onLine) {
+        const productRef = doc(db, "products", item.productId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const nextStock = Number(productSnap.data().currentStock || 0) + normalizedQty;
+          await updateDoc(productRef, {
+            currentStock: nextStock,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+    }
+
+    const mergedReturnItems = [...existingReturns, ...finalSelectedItems.map((item) => ({
+      productId: item.productId,
+      name: item.name,
+      unit: item.unit,
+      returnQty: item.qty,
+      normalizedQty: item.normalizedQty,
+      sellingPrice: item.sellingPrice,
+      lineTotal: item.lineTotal,
+    }))];
+
+    const totalReturnedQty = mergedReturnItems.reduce((sum, item) => sum + Number(item.returnQty || 0), 0);
+    const totalSoldQty = (saleObj.items || []).reduce((sum, item) => sum + Number(item.qty ?? item.normalizedQty ?? 0), 0);
+    const saleStatus = totalReturnedQty >= totalSoldQty ? "Returned" : "Partially Returned";
+
+    if (saleObj.id && navigator.onLine) {
+      await updateDoc(doc(db, "sales", saleObj.id), {
+        returned: totalReturnedQty >= totalSoldQty,
+        returnStatus: saleStatus,
+        returnedAt: totalReturnedQty >= totalSoldQty ? serverTimestamp() : null,
+        returnedItems: mergedReturnItems,
+        returnTotal: (Number(saleObj.returnTotal || 0) + returnTotal).toFixed(2),
+      });
+    }
+
+    const returnData = {
+      invoiceNumber: saleObj.invoiceNumber,
+      customerName: saleObj.customerName || "Walk-in Customer",
+      items: finalSelectedItems,
+      returnTotal,
+      grandTotal: returnTotal,
+      paymentMethod: "Return",
+    };
+
+    populateReturnPrintWindowContent(printWindow, returnData, format, true);
+    showToast("Selected items returned and stock has been restored.", "success");
+  } catch (err) {
+    if (printWindow) printWindow.close();
+    showToast(err.message || "Unable to process item return.", "error");
+  } finally {
+    toggleLoader(false);
+  }
 };
 
 const renderPurchasesTable = () => {
