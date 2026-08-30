@@ -1458,9 +1458,11 @@ const renderSalesHistoryTable = () => {
       <td><strong>${formatCurrency(s.grandTotal)}</strong></td>
       <td><span class="chip">${s.paymentMethod || "Cash"}</span></td>
       <td><span class="chip ${statusClass}" style="color:#fff;">${statusLabel}</span></td>
-      <td>
-        <button class="btn btn-sm btn-secondary" onclick='window.reprintInvoice(${JSON.stringify(s)})'><i class="fa-solid fa-print"></i></button>
-        ${isFullyReturned ? '<span class="chip bg-red" style="margin-left:8px;">Closed</span>' : `<button class="btn btn-sm btn-danger" style="margin-left:8px;" onclick='window.openReturnItemsModal(${JSON.stringify(s)})'><i class="fa-solid fa-rotate-left"></i> Return Items</button>`}
+      <td class="sales-action-cell">
+        <div class="sales-action-group">
+          <button class="btn btn-sm btn-secondary" onclick='window.reprintInvoice(${JSON.stringify(s)})'><i class="fa-solid fa-print"></i></button>
+          ${isFullyReturned ? '<span class="chip bg-red">Closed</span>' : `<button class="btn btn-sm btn-danger" onclick='window.openReturnItemsModal(${JSON.stringify(s)})'><i class="fa-solid fa-rotate-left"></i> Return Items</button>`}
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
@@ -1599,14 +1601,14 @@ const openReturnItemsModal = (saleObj) => {
     .join("");
 
   modalContent.innerHTML = `
-    <div class="delete-confirm-modal" style="width:min(620px,90vw);">
-      <div class="delete-confirm-icon" style="background:rgba(220,38,38,.12); color:#dc2626;"><i class="fa-solid fa-rotate-left"></i></div>
+    <div class="delete-confirm-modal return-modal-panel">
+      <div class="delete-confirm-icon return-modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
       <h3>Return Selected Items</h3>
-      <p style="margin-bottom:16px;">Invoice: <strong>${saleObj.invoiceNumber}</strong></p>
-      <div style="max-height:340px; overflow:auto; margin-bottom:16px;">
+      <p class="return-modal-invoice">Invoice: <strong>${saleObj.invoiceNumber}</strong></p>
+      <div class="return-items-list">
         ${rowsHtml || '<p>No items available to return.</p>'}
       </div>
-      <div class="delete-confirm-actions">
+      <div class="delete-confirm-actions return-modal-actions">
         <button type="button" class="btn btn-secondary" id="return-items-cancel">Cancel</button>
         <button type="button" class="btn btn-danger" id="return-items-confirm"><i class="fa-solid fa-rotate-left"></i> Return Selected Items</button>
       </div>

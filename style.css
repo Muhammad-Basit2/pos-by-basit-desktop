@@ -1624,6 +1624,104 @@ video {
   text-align: center;
 }
 
+.return-modal-panel {
+  width: min(620px, 92vw);
+  max-width: 620px;
+  border-radius: 18px;
+  padding: 28px 22px 20px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.return-modal-icon {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger);
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.1);
+}
+
+.return-modal-invoice {
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.return-items-list {
+  max-height: 340px;
+  overflow: auto;
+  margin-bottom: 16px;
+  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.return-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.02);
+}
+
+.return-item-row > div:first-child {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.return-item-row > div:first-child > div:first-child {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.return-item-row > div:first-child > div:last-child {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.return-item-row > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.return-item-row label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.return-item-row input {
+  width: 90px;
+  text-align: center;
+  min-height: 42px;
+}
+
+.return-modal-actions {
+  margin-top: 18px;
+}
+
+.sales-action-cell {
+  min-width: 210px;
+}
+
+.sales-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sales-action-group .btn,
+.sales-action-group .chip {
+  white-space: nowrap;
+}
+
 .delete-confirm-icon {
   width: 58px;
   height: 58px;
@@ -1652,6 +1750,7 @@ video {
   justify-content: center;
   gap: 10px;
   margin-top: 24px;
+  flex-wrap: wrap;
 }
 
 .delete-records-card .card-body > p {
@@ -1675,6 +1774,47 @@ video {
 @media (max-width: 600px) {
   .delete-confirm-modal {
     padding: 24px 18px;
+  }
+
+  .return-modal-panel {
+    width: min(96vw, 420px);
+    padding: 20px 14px 16px;
+  }
+
+  .return-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .return-item-row > div:last-child {
+    justify-content: space-between;
+  }
+
+  .return-item-row input {
+    width: 100%;
+  }
+
+  .return-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .return-modal-actions .btn {
+    width: 100%;
+  }
+
+  .sales-action-cell {
+    min-width: 0;
+  }
+
+  .sales-action-group {
+    justify-content: flex-start;
+  }
+
+  .sales-action-group .btn,
+  .sales-action-group .chip {
+    width: auto;
   }
 
   .delete-confirm-actions .btn {
