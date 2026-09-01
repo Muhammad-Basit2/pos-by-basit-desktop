@@ -730,6 +730,173 @@ const populatePrintWindowContent = (
 };
 
 // ==========================================================================
+// 3.5 KEYBOARD CONTROLS & SHORTCUTS
+// ==========================================================================
+const initKeyboardControls = () => {
+  const shortcuts = {
+    // Navigation shortcuts
+    "ctrl+p": () => navigateTo("pos"),
+    "ctrl+d": () => navigateTo("dashboard"),
+    "ctrl+i": () => navigateTo("products"),
+    "ctrl+h": () => navigateTo("sales-history"),
+    "ctrl+u": () => navigateTo("customers"),
+    "ctrl+l": () => navigateTo("suppliers"),
+    "ctrl+e": () => navigateTo("expenses"),
+    "ctrl+r": () => navigateTo("reports"),
+    "ctrl+s": () => navigateTo("settings"),
+
+    // POS specific shortcuts
+    "ctrl+shift+c": () => {
+      if (document.getElementById("page-pos").classList.contains("active")) {
+        state.cart = [];
+        renderCart();
+        showToast("Cart cleared", "success");
+      }
+    },
+    "ctrl+shift+enter": () => {
+      if (document.getElementById("page-pos").classList.contains("active")) {
+        document.getElementById("pos-checkout-btn")?.click();
+      }
+    },
+
+    // Modal/Dialog controls
+    escape: () => {
+      const modal = document.getElementById("modal-container");
+      if (modal && !modal.classList.contains("hidden")) {
+        closeModal();
+      }
+    },
+
+    // Help/Shortcuts menu
+    "ctrl+?": (e) => {
+      e.preventDefault();
+      showKeyboardShortcuts();
+    },
+    "ctrl+shift+?": (e) => {
+      e.preventDefault();
+      showKeyboardShortcuts();
+    },
+
+    // Theme toggle
+    "ctrl+shift+t": () => {
+      document.getElementById("theme-toggle")?.click();
+    },
+  };
+
+  // Category quick navigation in POS (Alt+1 to Alt+9)
+  const categories = state.categories;
+  categories.forEach((cat, idx) => {
+    if (idx < 9) {
+      shortcuts[`alt+${idx + 1}`] = () => {
+        if (document.getElementById("page-pos").classList.contains("active")) {
+          const catSelect = document.getElementById("pos-category-filter");
+          if (catSelect) {
+            catSelect.value = cat;
+            catSelect.dispatchEvent(new Event("change"));
+            showToast(`Filtered by ${cat}`, "success");
+          }
+        }
+      };
+    }
+  });
+
+  // Global keyboard event listener
+  document.addEventListener("keydown", (e) => {
+    // Ignore if user is typing in an input field (unless it's a special shortcut)
+    const isInput =
+      e.target.tagName === "INPUT" ||
+      e.target.tagName === "TEXTAREA" ||
+      e.target.contentEditable === "true";
+
+    if (isInput && !e.ctrlKey && !e.altKey && e.key !== "Escape") {
+      return;
+    }
+
+    // Build the key combination string
+    const keys = [];
+    if (e.ctrlKey) keys.push("ctrl");
+    if (e.shiftKey) keys.push("shift");
+    if (e.altKey) keys.push("alt");
+
+    // Add the actual key
+    const key = e.key.toLowerCase();
+    if (key !== "control" && key !== "shift" && key !== "alt") {
+      keys.push(key === "?" ? "?" : key);
+    }
+
+    const combo = keys.join("+");
+
+    // Check if this combination has a shortcut
+    if (shortcuts[combo]) {
+      e.preventDefault();
+      try {
+        shortcuts[combo](e);
+      } catch (error) {
+        console.error("Keyboard shortcut error:", error);
+      }
+    }
+
+    // POS-specific Enter key for quick add (when search is focused)
+    if (
+      e.key === "Enter" &&
+      isInput &&
+      document.getElementById("pos-search") === e.target
+    ) {
+      // Find the first product in the filtered grid and add it
+      const firstCard = document.querySelector(".pos-product-card");
+      if (firstCard) {
+        firstCard.click();
+      }
+    }
+  });
+};
+
+const showKeyboardShortcuts = () => {
+  const shortcuts = [
+    { key: "Ctrl + P", desc: "POS Terminal" },
+    { key: "Ctrl + D", desc: "Dashboard" },
+    { key: "Ctrl + I", desc: "Inventory" },
+    { key: "Ctrl + H", desc: "Sales History" },
+    { key: "Ctrl + U", desc: "Customers" },
+    { key: "Ctrl + L", desc: "Suppliers" },
+    { key: "Ctrl + E", desc: "Expenses" },
+    { key: "Ctrl + R", desc: "Reports" },
+    { key: "Ctrl + S", desc: "Settings" },
+    { key: "Alt + 1-9", desc: "Quick category filter (in POS)" },
+    { key: "Ctrl + Shift + C", desc: "Clear cart" },
+    { key: "Ctrl + Shift + Enter", desc: "Quick checkout" },
+    { key: "Ctrl + Shift + T", desc: "Toggle theme" },
+    { key: "Enter", desc: "Add first product to cart (in POS search)" },
+    { key: "Escape", desc: "Close modal/dialog" },
+  ];
+
+  const html = `
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-keyboard"></i> Keyboard Shortcuts</h3>
+      <button class="icon-btn" id="close-shortcuts"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display: grid; grid-template-columns: auto 1fr; gap: 20px; gap-row: 12px;">
+        ${shortcuts.map((s) => `
+          <div style="font-weight: 600; color: var(--primary-color); font-size: 0.85rem; font-family: monospace;">${s.key}</div>
+          <div style="color: var(--text-muted); font-size: 0.85rem;">${s.desc}</div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  const modal = document.getElementById("modal-container");
+  const modalContent = document.getElementById("modal-content");
+
+  if (modal && modalContent) {
+    modalContent.innerHTML = html;
+    modal.classList.remove("hidden");
+
+    document.getElementById("close-shortcuts")?.addEventListener("click", closeModal);
+  }
+};
+
+// ==========================================================================
 // 4. AUTHENTICATION & NAVIGATION INITIALIZATION
 // ==========================================================================
 onAuthStateChanged(auth, async (user) => {
@@ -740,6 +907,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("app-screen")?.classList.remove("hidden");
     initNavigation();
     initAppListeners();
+    initKeyboardControls();
     setupRealtimeListeners();
     await restorePendingOperations();
     await syncOutbox();
