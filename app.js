@@ -719,10 +719,7 @@ const populatePrintWindowContent = (
           </tr>
         </table>
         <p class="urdu-text" dir="auto" style="margin-top: 10px; text-align:center;">${currentBusiness?.invoiceFooter || "Thank you for shopping!"}</p>
-        <script>
-          // Auto-print on window load (user can cancel or choose printer);
-          window.onload = () => { setTimeout(() => { window.print(); }, 200); };
-        <\/script>
+        <script>${autoPrint ? "window.onload = () => { setTimeout(() => { window.print(); }, 200); };" : ""}</script>
       </body>
     </html>
   `);
@@ -983,12 +980,14 @@ const loadUserProfileAndBusiness = async () => {
     const setShopPhone = document.getElementById("set-shop-phone");
     const setShopAddress = document.getElementById("set-shop-address");
     const setShopTax = document.getElementById("set-shop-tax");
+    const setInvoiceFooter = document.getElementById("set-invoice-footer");
     const logoPreview = document.getElementById("shop-logo-preview");
 
     if (setShopName) setShopName.value = currentBusiness.shopName || "";
     if (setShopPhone) setShopPhone.value = currentBusiness.phone || "";
     if (setShopAddress) setShopAddress.value = currentBusiness.address || "";
     if (setShopTax) setShopTax.value = currentBusiness.tax || 0;
+    if (setInvoiceFooter) setInvoiceFooter.value = currentBusiness.invoiceFooter || "";
     if (logoPreview && currentBusiness.logoDataUrl) {
       logoPreview.src = currentBusiness.logoDataUrl;
       logoPreview.classList.remove("hidden");
@@ -1196,6 +1195,73 @@ const initAppListeners = () => {
     });
 
   document
+    .getElementById("pos-save-pdf-btn")
+    ?.addEventListener("click", () => {
+      const format =
+        document.getElementById("pos-print-format")?.value || "thermal";
+      if (!state.cart || state.cart.length === 0) {
+        showToast("Cart is empty", "error");
+        return;
+      }
+
+      let subtotal = 0;
+      const saleItems = state.cart.map((item) => {
+        const normalizedQty = normalizeToStandardUnit(item.qty, item.unit);
+        const lineTotal = normalizedQty * item.sellingPrice;
+        subtotal += lineTotal;
+        return Object.assign({}, item, { normalizedQty, lineTotal });
+      });
+      const discount =
+        parseFloat(document.getElementById("pos-discount-input")?.value) || 0;
+      const taxPct =
+        parseFloat(document.getElementById("pos-tax-input")?.value) || 0;
+      const taxAmount = (subtotal - discount) * (taxPct / 100);
+      const grandTotal = Math.max(0, subtotal - discount + taxAmount);
+      const paidAmount =
+        parseFloat(document.getElementById("pos-paid-amount")?.value) || 0;
+      const balanceDue = grandTotal > paidAmount ? grandTotal - paidAmount : 0;
+      const customerId =
+        document.getElementById("pos-customer-select")?.value || "WALKIN";
+      const customerObj = state.customers.find((customer) => customer.id === customerId);
+      const saleData = {
+        invoiceNumber: "INV-" + Math.floor(1000 + Math.random() * 9000),
+        customerName: customerObj ? customerObj.name : "Walk-in Customer",
+        items: saleItems,
+        subtotal,
+        discount,
+        taxAmount,
+        grandTotal,
+        paidAmount,
+        balanceDue,
+        paymentMethod: document.getElementById("pos-payment-method")?.value || "Cash",
+      };
+
+      const printWindow = window.open("", "_blank", "width=400,height=600");
+      populatePrintWindowContent(printWindow, saleData, format, false);
+      const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+      if (!ipcRenderer) {
+        printWindow.print();
+        showToast("Use your system print dialog to save the invoice as PDF.", "info");
+        return;
+      }
+      setTimeout(async () => {
+        try {
+          const result = await ipcRenderer.invoke("save-invoice-pdf", {
+            html: printWindow.document.documentElement.outerHTML,
+            invoiceNumber: saleData.invoiceNumber,
+            format,
+          });
+          if (result?.canceled) showToast("PDF save canceled.", "info");
+          else showToast("Invoice PDF saved locally.", "success");
+        } catch (error) {
+          showToast(`Unable to save PDF: ${error.message}`, "error");
+        } finally {
+          if (!printWindow.closed) printWindow.close();
+        }
+      }, 300);
+    });
+
+  document
     .getElementById("settings-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -1204,6 +1270,7 @@ const initAppListeners = () => {
         const shopName = document.getElementById("set-shop-name").value;
         const phone = document.getElementById("set-shop-phone").value;
         const address = document.getElementById("set-shop-address").value;
+        const invoiceFooter = document.getElementById("set-invoice-footer").value;
         const tax =
           parseFloat(document.getElementById("set-shop-tax").value) || 0;
         const logoFile = document.getElementById("set-shop-logo")?.files?.[0];
@@ -1219,6 +1286,7 @@ const initAppListeners = () => {
           phone,
           address,
           tax,
+          invoiceFooter,
           logoDataUrl,
         };
         await updateDoc(doc(db, "businesses", businessId), businessUpdate);
@@ -1247,6 +1315,18 @@ const initAppListeners = () => {
   document
     .getElementById("load-demo-data-btn")
     ?.addEventListener("click", seedDemoData);
+  document
+    .getElementById("import-products-btn")
+    ?.addEventListener("click", () => document.getElementById("import-products-file")?.click());
+  document
+    .getElementById("import-customers-btn")
+    ?.addEventListener("click", () => document.getElementById("import-customers-file")?.click());
+  document
+    .getElementById("import-products-file")
+    ?.addEventListener("change", (event) => importSpreadsheet(event.target.files?.[0], "products"));
+  document
+    .getElementById("import-customers-file")
+    ?.addEventListener("change", (event) => importSpreadsheet(event.target.files?.[0], "customers"));
   document
     .getElementById("export-products-csv")
     ?.addEventListener("click", exportProductsCSV);
@@ -3830,6 +3910,166 @@ const exportSalesCSV = () => {
     csv += `"${s.invoiceNumber}","${s.customerName}",${s.grandTotal},"${s.paymentMethod}","${d}"\n`;
   });
   downloadCSV(csv, "sales_export.csv");
+};
+
+const normalizeSpreadsheetKey = (key) =>
+  String(key || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const spreadsheetValue = (row, ...keys) => {
+  const normalizedRow = Object.entries(row).reduce((result, [key, value]) => {
+    result[normalizeSpreadsheetKey(key)] = value;
+    return result;
+  }, {});
+  for (const key of keys) {
+    const value = normalizedRow[normalizeSpreadsheetKey(key)];
+    if (value !== undefined && value !== "") return value;
+  }
+  return "";
+};
+
+const parseCSVRows = (text) => {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+    if (character === '"' && quoted && nextCharacter === '"') {
+      value += '"';
+      index++;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      row.push(value.trim());
+      value = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && nextCharacter === "\n") index++;
+      row.push(value.trim());
+      if (row.some((cell) => cell !== "")) rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+
+  row.push(value.trim());
+  if (row.some((cell) => cell !== "")) rows.push(row);
+  if (rows.length < 2) return [];
+
+  const headers = rows.shift().map((header, index) => index === 0 ? header.replace(/^\uFEFF/, "") : header);
+  return rows.map((cells) => headers.reduce((result, header, index) => {
+    result[header] = cells[index] || "";
+    return result;
+  }, {}));
+};
+
+const readSpreadsheetRows = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const isCSV = file.name.toLowerCase().endsWith(".csv");
+    reader.onload = (event) => {
+      try {
+        if (isCSV) {
+          resolve(parseCSVRows(event.target.result));
+          return;
+        }
+        if (typeof XLSX === "undefined") {
+          reject(new Error("Excel support is unavailable. Please use CSV or reconnect and try again."));
+          return;
+        }
+        const workbook = XLSX.read(event.target.result, { type: "array" });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        resolve(XLSX.utils.sheet_to_json(firstSheet, { defval: "" }));
+      } catch (error) {
+        reject(new Error("The spreadsheet could not be read. Please check its format."));
+      }
+    };
+    reader.onerror = () => reject(new Error("The spreadsheet file could not be opened."));
+    if (isCSV) reader.readAsText(file, "UTF-8");
+    else reader.readAsArrayBuffer(file);
+  });
+
+const importSpreadsheet = async (file, type) => {
+  if (!file) return;
+  const fileInput = document.getElementById(`import-${type}-file`);
+  if (fileInput) fileInput.value = "";
+  toggleLoader(true, `Importing ${type === "products" ? "stock" : "customers"}...`);
+
+  try {
+    const rows = await readSpreadsheetRows(file);
+    if (!rows.length) throw new Error("The spreadsheet has no data rows.");
+
+    let imported = 0;
+    let updated = 0;
+    let skipped = 0;
+    for (const row of rows) {
+      if (type === "products") {
+        const name = String(spreadsheetValue(row, "name", "product name", "item") || "").trim();
+        if (!name) {
+          skipped++;
+          continue;
+        }
+        const barcode = String(spreadsheetValue(row, "barcode", "sku", "barcode sku") || "").trim();
+        const existing = state.products.find((product) =>
+          barcode ? String(product.barcode || "") === barcode : product.name.toLowerCase() === name.toLowerCase(),
+        );
+        const data = {
+          businessId,
+          name,
+          barcode,
+          category: String(spreadsheetValue(row, "category", "group") || "Grocery").trim(),
+          unit: String(spreadsheetValue(row, "unit", "unit type") || "Piece").trim(),
+          currentStock: Number(spreadsheetValue(row, "stock", "current stock", "quantity")) || 0,
+          purchasePrice: Number(spreadsheetValue(row, "cost", "purchase price", "purchase cost")) || 0,
+          sellingPrice: Number(spreadsheetValue(row, "price", "selling price", "sale price")) || 0,
+          minStockAlert: Number(spreadsheetValue(row, "minimum stock", "min stock alert")) || 5,
+          updatedAt: serverTimestamp(),
+        };
+        if (existing) {
+          await updateDoc(doc(db, "products", existing.id), data);
+          updated++;
+        } else {
+          await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+          imported++;
+        }
+      } else {
+        const name = String(spreadsheetValue(row, "name", "customer name", "customer") || "").trim();
+        if (!name) {
+          skipped++;
+          continue;
+        }
+        const phone = String(spreadsheetValue(row, "phone", "mobile", "contact") || "").trim();
+        const existing = state.customers.find((customer) =>
+          phone ? String(customer.phone || "") === phone : customer.name.toLowerCase() === name.toLowerCase(),
+        );
+        const data = {
+          businessId,
+          name,
+          phone,
+          cnic: String(spreadsheetValue(row, "cnic", "national id") || "").trim(),
+          balance: Number(spreadsheetValue(row, "balance", "initial balance", "udhaar", "credit")) || 0,
+          updatedAt: serverTimestamp(),
+        };
+        if (existing) {
+          await updateDoc(doc(db, "customers", existing.id), data);
+          updated++;
+        } else {
+          await addDoc(collection(db, "customers"), { ...data, createdAt: serverTimestamp() });
+          imported++;
+        }
+      }
+    }
+    showToast(`Import complete: ${imported} added, ${updated} updated${skipped ? `, ${skipped} skipped` : ""}.`, "success");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    toggleLoader(false);
+  }
 };
 
 const downloadCSV = (content, filename) => {

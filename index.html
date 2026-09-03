@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS for Excel/CSV imports -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <!-- Google Fonts: Inter & Noto Nastaliq Urdu -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -348,6 +350,7 @@
                     <option value="A5">A5 (148x210mm)</option>
                   </select>
                   <button id="pos-print-preview-btn" class="btn btn-secondary btn-sm">Preview</button>
+                  <button id="pos-save-pdf-btn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-file-pdf"></i> Save PDF</button>
                 </div>
 
                 <button id="pos-checkout-btn" class="btn btn-accent btn-block btn-lg"><i
@@ -657,6 +660,15 @@
                   test out the system immediately.</p>
                 <button id="load-demo-data-btn" class="btn btn-accent" style="margin-bottom: 20px;"><i
                     class="fa-solid fa-vial"></i> Load Pakistani Demo Inventory</button>
+                <hr>
+                <h4>Import Spreadsheet Data</h4>
+                <p>Upload an Excel or CSV file. Product columns: Name, Barcode/SKU, Category, Unit, Cost, Price, Stock. Customer columns: Name, Phone, CNIC, Balance.</p>
+                <div class="button-group" style="margin-top: 10px;">
+                  <button id="import-products-btn" class="btn btn-secondary"><i class="fa-solid fa-file-import"></i> Import Stock</button>
+                  <button id="import-customers-btn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Import Customers</button>
+                </div>
+                <input type="file" id="import-products-file" accept=".xlsx,.xls,.csv" class="hidden">
+                <input type="file" id="import-customers-file" accept=".xlsx,.xls,.csv" class="hidden">
                 <hr>
                 <h4>CSV Export Capabilities</h4>
                 <div class="button-group" style="margin-top: 10px;">
