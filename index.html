@@ -154,7 +154,9 @@
       <!-- Top Navbar -->
       <header class="top-header">
         <div class="header-left">
-          <button id="mobile-hamburger" class="icon-btn mobile-only"><i class="fa-solid fa-bars"></i></button>
+          <button id="sidebar-toggle-btn" class="icon-btn" title="Toggle sidebar" aria-label="Toggle sidebar" aria-expanded="true">
+            <i class="fa-solid fa-bars"></i>
+          </button>
           <h2 id="page-title">Dashboard</h2>
         </div>
         <div class="header-right">
@@ -204,7 +206,7 @@
                 <h3 id="dash-total-products">0</h3>
               </div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card metric-card-action" id="low-stock-metric" role="button" tabindex="0" aria-label="Show low and out of stock products">
               <div class="metric-icon bg-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
               <div class="metric-info">
                 <span class="label">Low / Out Stock</span>
@@ -370,6 +372,7 @@
               </select>
             </div>
             <div class="button-group">
+              <button id="clear-stock-filter" class="btn btn-secondary hidden"><i class="fa-solid fa-list"></i> Show All Products</button>
               <button id="add-product-btn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Product</button>
               <button id="manage-categories-btn" class="btn btn-secondary"><i class="fa-solid fa-layer-group"></i>
                 Categories</button>

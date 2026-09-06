@@ -1,6 +1,6 @@
 {
   "name": "pos-by-basit-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Desktop point-of-sale and inventory management system for retail businesses.",
   "main": "index.js",
   "scripts": {

@@ -75,6 +75,7 @@ let state = {
   cart: [],
   selectedCategory: "ALL",
   posSearchQuery: "",
+  inventoryStockFilter: "",
 };
 
 let salesChartInstance = null;
@@ -1038,9 +1039,16 @@ const navigateTo = (pageId) => {
   }
 
   if (pageId === "dashboard") refreshDashboard();
+  if (pageId === "products") {
+    state.inventoryStockFilter = "";
+    const searchInput = document.getElementById("product-search-input");
+    if (searchInput) searchInput.value = "";
+    renderProductsTable();
+  }
 
   document.getElementById("sidebar")?.classList.remove("open");
   document.getElementById("sidebar-overlay")?.classList.remove("open");
+  document.getElementById("sidebar-toggle-btn")?.setAttribute("aria-expanded", "false");
 };
 
 const initNavigation = () => {
@@ -1056,24 +1064,56 @@ const initNavigation = () => {
     .getElementById("quick-pos-btn")
     ?.addEventListener("click", () => navigateTo("pos"));
 
-  const hamburger = document.getElementById("mobile-hamburger");
+  const lowStockMetric = document.getElementById("low-stock-metric");
+  const showLowStockProducts = () => {
+    navigateTo("products");
+    state.inventoryStockFilter = "low";
+    renderProductsTable();
+  };
+  lowStockMetric?.addEventListener("click", showLowStockProducts);
+  lowStockMetric?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      showLowStockProducts();
+    }
+  });
+
+  const sidebarToggle = document.getElementById("sidebar-toggle-btn");
   const closeBtn = document.getElementById("sidebar-close-btn");
   const overlay = document.getElementById("sidebar-overlay");
   const sidebar = document.getElementById("sidebar");
+  const appScreen = document.getElementById("app-screen");
 
-  hamburger?.addEventListener("click", () => {
-    sidebar?.classList.add("open");
-    overlay?.classList.add("open");
+  const updateSidebarToggleState = (isExpanded) => {
+    sidebarToggle?.setAttribute("aria-expanded", String(isExpanded));
+    if (sidebarToggle) {
+      sidebarToggle.title = isExpanded ? "Hide sidebar" : "Show sidebar";
+      sidebarToggle.setAttribute("aria-label", isExpanded ? "Hide sidebar" : "Show sidebar");
+    }
+  };
+
+  sidebarToggle?.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      const isOpen = sidebar?.classList.toggle("open") || false;
+      overlay?.classList.toggle("open", isOpen);
+      updateSidebarToggleState(isOpen);
+      return;
+    }
+
+    const isCollapsed = appScreen?.classList.toggle("sidebar-collapsed") || false;
+    updateSidebarToggleState(!isCollapsed);
   });
 
   closeBtn?.addEventListener("click", () => {
     sidebar?.classList.remove("open");
     overlay?.classList.remove("open");
+    updateSidebarToggleState(false);
   });
 
   overlay?.addEventListener("click", () => {
     sidebar?.classList.remove("open");
     overlay?.classList.remove("open");
+    updateSidebarToggleState(false);
   });
 
   const themeToggle = document.getElementById("theme-toggle");
@@ -1091,6 +1131,10 @@ const initAppListeners = () => {
   const prodSearch = document.getElementById("product-search-input");
   if (catFilter) catFilter.addEventListener("change", renderProductsTable);
   if (prodSearch) prodSearch.addEventListener("input", renderProductsTable);
+  document.getElementById("clear-stock-filter")?.addEventListener("click", () => {
+    state.inventoryStockFilter = "";
+    renderProductsTable();
+  });
 
   const salesSearch = document.getElementById("sales-search-input");
   const salesDateFilter = document.getElementById("sales-date-filter");
@@ -2600,12 +2644,20 @@ const renderProductsTable = () => {
     document.getElementById("product-category-filter")?.value || "ALL";
   const q =
     document.getElementById("product-search-input")?.value.toLowerCase() || "";
+  const clearStockFilter = document.getElementById("clear-stock-filter");
+
+  if (clearStockFilter) {
+    clearStockFilter.classList.toggle("hidden", state.inventoryStockFilter !== "low");
+  }
 
   const filtered = state.products.filter((p) => {
     const matchCat = filter === "ALL" || p.category === filter;
     const matchQ =
       p.name.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(q));
-    return matchCat && matchQ;
+    const matchStock =
+      state.inventoryStockFilter !== "low" ||
+      p.currentStock <= (p.minStockAlert || 5);
+    return matchCat && matchQ && matchStock;
   });
 
   filtered.forEach((p) => {

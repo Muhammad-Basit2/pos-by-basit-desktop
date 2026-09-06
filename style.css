@@ -352,6 +352,16 @@ textarea:focus {
   /* prevent sidebar from shrinking on medium screens */
 }
 
+.app-wrapper.sidebar-collapsed .sidebar {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-wrapper.sidebar-collapsed .sidebar > * {
+  visibility: hidden;
+}
+
 .sidebar-header {
   padding: 20px;
   display: flex;
@@ -513,6 +523,19 @@ textarea:focus {
   align-items: center;
   gap: 16px;
   border: 1px solid var(--border-color);
+}
+
+.metric-card-action {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.metric-card-action:hover,
+.metric-card-action:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
 .metric-icon {
@@ -1160,6 +1183,11 @@ textarea:focus {
     top: 0;
     bottom: 0;
     width: 260px;
+  }
+
+  .app-wrapper.sidebar-collapsed .sidebar {
+    width: 260px;
+    min-width: 260px;
   }
 
   .sidebar.open {
