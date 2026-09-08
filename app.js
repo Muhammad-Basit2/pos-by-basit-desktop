@@ -2357,10 +2357,13 @@ const renderOpenInvoiceDrafts = () => {
   const container = document.getElementById("open-invoice-drafts");
   if (!container) return;
   container.innerHTML = state.invoiceDrafts.map((draft) => `
-    <button class="invoice-draft-tab ${draft.id === state.activeInvoiceId ? "active" : ""}" type="button" onclick="window.switchInvoiceDraft('${draft.id}')">
-      <span>${draft.label}</span>
-      <small>${draft.customerName || "Walk-in Customer"} · ${draft.cart.length} item${draft.cart.length === 1 ? "" : "s"}</small>
-    </button>
+    <div class="invoice-draft-tab ${draft.id === state.activeInvoiceId ? "active" : ""}">
+      <button class="invoice-draft-tab-main" type="button" onclick="window.switchInvoiceDraft('${draft.id}')">
+        <span>${draft.label}</span>
+        <small>${draft.customerName || "Walk-in Customer"} · ${draft.cart.length} item${draft.cart.length === 1 ? "" : "s"}</small>
+      </button>
+      <button class="invoice-draft-remove" type="button" title="Remove this open invoice" aria-label="Remove ${draft.label}" onclick="window.removeInvoiceDraft('${draft.id}')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
   `).join("");
 };
 
@@ -2402,6 +2405,42 @@ window.switchInvoiceDraft = (draftId) => {
   if (!draft) return;
   state.activeInvoiceId = draftId;
   applyInvoiceDraft(draft);
+};
+
+window.removeInvoiceDraft = async (draftId) => {
+  const draft = state.invoiceDrafts.find((item) => item.id === draftId);
+  if (!draft) return;
+
+  if (!(await showDeleteConfirmation(`${draft.label} and its unsaved cart will be removed.`))) return;
+
+  if (state.invoiceDrafts.length === 1) {
+    const freshDraft = createInvoiceDraft(draft.label.replace("Invoice ", "") || 1);
+    state.invoiceDrafts[0] = freshDraft;
+    state.activeInvoiceId = freshDraft.id;
+    applyInvoiceDraft(freshDraft);
+    showToast("The last open invoice was cleared.", "info");
+    return;
+  }
+
+  const wasActive = state.activeInvoiceId === draftId;
+  state.invoiceDrafts = state.invoiceDrafts.filter((item) => item.id !== draftId);
+  const activeDraft = state.invoiceDrafts.find((item) => item.id === state.activeInvoiceId);
+  state.invoiceDrafts.forEach((item, index) => {
+    item.id = `invoice-${index + 1}`;
+    item.label = `Invoice ${index + 1}`;
+  });
+  state.nextInvoiceDraftNumber = state.invoiceDrafts.length + 1;
+  if (wasActive) {
+    state.activeInvoiceId = state.invoiceDrafts[0].id;
+    applyInvoiceDraft(state.invoiceDrafts[0]);
+  } else if (activeDraft) {
+    state.activeInvoiceId = activeDraft.id;
+    renderOpenInvoiceDrafts();
+  } else {
+    state.activeInvoiceId = state.invoiceDrafts[0].id;
+    renderOpenInvoiceDrafts();
+  }
+  showToast(`${draft.label} removed.`, "info");
 };
 
 const finishActiveInvoiceDraft = () => {

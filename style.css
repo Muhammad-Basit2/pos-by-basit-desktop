@@ -779,21 +779,44 @@ textarea:focus {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-color);
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  min-width: 118px;
+  overflow: hidden;
+}
+
+.invoice-draft-tab-main {
+  background: transparent;
+  border: 0;
   color: var(--text-color);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 1;
   gap: 2px;
-  min-width: 118px;
-  padding: 7px 10px;
+  min-width: 0;
+  padding: 7px 8px 7px 10px;
   text-align: left;
 }
 
-.invoice-draft-tab small {
+.invoice-draft-tab-main small {
   color: var(--text-muted);
   font-size: 0.7rem;
   white-space: nowrap;
+}
+
+.invoice-draft-remove {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.invoice-draft-remove:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger);
 }
 
 .invoice-draft-tab.active {
