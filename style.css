@@ -760,6 +760,47 @@ textarea:focus {
   margin-bottom: 12px;
 }
 
+.cart-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.open-invoice-drafts {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  padding-bottom: 2px;
+}
+
+.invoice-draft-tab {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-color);
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 118px;
+  padding: 7px 10px;
+  text-align: left;
+}
+
+.invoice-draft-tab small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.invoice-draft-tab.active {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 -2px 0 var(--primary-color);
+}
+
 .cart-customer-select {
   display: flex;
   gap: 8px;

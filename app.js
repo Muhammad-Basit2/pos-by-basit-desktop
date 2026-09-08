@@ -73,6 +73,9 @@ let state = {
   expenses: [],
   udhaarPayments: [],
   cart: [],
+  invoiceDrafts: [],
+  activeInvoiceId: "invoice-1",
+  nextInvoiceDraftNumber: 2,
   selectedCategory: "ALL",
   posSearchQuery: "",
   inventoryStockFilter: "",
@@ -1127,6 +1130,11 @@ const initNavigation = () => {
 };
 
 const initAppListeners = () => {
+  if (state.invoiceDrafts.length === 0) {
+    state.invoiceDrafts.push(createInvoiceDraft(1));
+  }
+  renderOpenInvoiceDrafts();
+
   const catFilter = document.getElementById("product-category-filter");
   const prodSearch = document.getElementById("product-search-input");
   if (catFilter) catFilter.addEventListener("change", renderProductsTable);
@@ -1182,6 +1190,13 @@ const initAppListeners = () => {
   document
     .getElementById("pos-paid-amount")
     ?.addEventListener("input", calculateCartTotals);
+  document.getElementById("pos-customer-select")?.addEventListener("change", () => {
+    captureActiveInvoiceDraft();
+    renderOpenInvoiceDrafts();
+  });
+  document.getElementById("pos-payment-method")?.addEventListener("change", () => captureActiveInvoiceDraft());
+  document.getElementById("pos-print-format")?.addEventListener("change", () => captureActiveInvoiceDraft());
+  document.getElementById("pos-new-invoice-btn")?.addEventListener("click", startNewInvoiceDraft);
   document.getElementById("pos-clear-cart")?.addEventListener("click", () => {
     state.cart = [];
     renderCart();
@@ -2306,6 +2321,100 @@ const addToCart = (product) => {
   renderCart();
 };
 
+const createInvoiceDraft = (number) => ({
+  id: `invoice-${number}`,
+  label: `Invoice ${number}`,
+  cart: [],
+  customerId: "WALKIN",
+  customerSearch: "",
+  discount: 0,
+  tax: 0,
+  paidAmount: "",
+  paymentMethod: "Cash",
+  printFormat: "thermal",
+});
+
+const getActiveInvoiceDraft = () =>
+  state.invoiceDrafts.find((draft) => draft.id === state.activeInvoiceId);
+
+const captureActiveInvoiceDraft = () => {
+  const draft = getActiveInvoiceDraft();
+  if (!draft) return;
+
+  draft.cart = state.cart.map((item) => ({ ...item }));
+  draft.customerId = document.getElementById("pos-customer-select")?.value || "WALKIN";
+  draft.customerSearch = document.getElementById("pos-customer-search")?.value || "";
+  draft.discount = document.getElementById("pos-discount-input")?.value || "0";
+  draft.tax = document.getElementById("pos-tax-input")?.value || "0";
+  draft.paidAmount = document.getElementById("pos-paid-amount")?.value || "";
+  draft.paymentMethod = document.getElementById("pos-payment-method")?.value || "Cash";
+  draft.printFormat = document.getElementById("pos-print-format")?.value || "thermal";
+  const customer = state.customers.find((item) => item.id === draft.customerId);
+  draft.customerName = customer?.name || "Walk-in Customer";
+};
+
+const renderOpenInvoiceDrafts = () => {
+  const container = document.getElementById("open-invoice-drafts");
+  if (!container) return;
+  container.innerHTML = state.invoiceDrafts.map((draft) => `
+    <button class="invoice-draft-tab ${draft.id === state.activeInvoiceId ? "active" : ""}" type="button" onclick="window.switchInvoiceDraft('${draft.id}')">
+      <span>${draft.label}</span>
+      <small>${draft.customerName || "Walk-in Customer"} · ${draft.cart.length} item${draft.cart.length === 1 ? "" : "s"}</small>
+    </button>
+  `).join("");
+};
+
+const applyInvoiceDraft = (draft) => {
+  if (!draft) return;
+  state.cart = draft.cart.map((item) => ({ ...item }));
+  const customerSearch = document.getElementById("pos-customer-search");
+  const customerSelect = document.getElementById("pos-customer-select");
+  if (customerSearch) customerSearch.value = draft.customerSearch || "";
+  renderPosCustomerDropdown();
+  if (customerSelect) customerSelect.value = draft.customerId || "WALKIN";
+  const setValue = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) element.value = value;
+  };
+  setValue("pos-discount-input", draft.discount ?? 0);
+  setValue("pos-tax-input", draft.tax ?? 0);
+  setValue("pos-paid-amount", draft.paidAmount ?? "");
+  setValue("pos-payment-method", draft.paymentMethod || "Cash");
+  setValue("pos-print-format", draft.printFormat || "thermal");
+  renderCart();
+  renderOpenInvoiceDrafts();
+};
+
+const startNewInvoiceDraft = () => {
+  captureActiveInvoiceDraft();
+  const nextDraft = createInvoiceDraft(state.nextInvoiceDraftNumber);
+  state.nextInvoiceDraftNumber += 1;
+  state.invoiceDrafts.push(nextDraft);
+  state.activeInvoiceId = nextDraft.id;
+  applyInvoiceDraft(nextDraft);
+  showToast("New invoice opened. Your previous invoice is saved here.", "success");
+};
+
+window.switchInvoiceDraft = (draftId) => {
+  if (draftId === state.activeInvoiceId) return;
+  captureActiveInvoiceDraft();
+  const draft = state.invoiceDrafts.find((item) => item.id === draftId);
+  if (!draft) return;
+  state.activeInvoiceId = draftId;
+  applyInvoiceDraft(draft);
+};
+
+const finishActiveInvoiceDraft = () => {
+  state.invoiceDrafts = state.invoiceDrafts.filter((draft) => draft.id !== state.activeInvoiceId);
+  if (state.invoiceDrafts.length === 0) {
+    const newDraft = createInvoiceDraft(state.nextInvoiceDraftNumber);
+    state.nextInvoiceDraftNumber += 1;
+    state.invoiceDrafts.push(newDraft);
+  }
+  state.activeInvoiceId = state.invoiceDrafts[0].id;
+  applyInvoiceDraft(state.invoiceDrafts[0]);
+};
+
 const renderCart = () => {
   const container = document.getElementById("pos-cart-items");
   if (!container) return;
@@ -2314,6 +2423,8 @@ const renderCart = () => {
   if (state.cart.length === 0) {
     container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-basket-shopping"></i><p>Cart is empty.</p></div>`;
     calculateCartTotals();
+    captureActiveInvoiceDraft();
+    renderOpenInvoiceDrafts();
     return;
   }
 
@@ -2341,6 +2452,8 @@ const renderCart = () => {
   });
 
   calculateCartTotals();
+  captureActiveInvoiceDraft();
+  renderOpenInvoiceDrafts();
 };
 
 window.updateCartQty = (index, val) => {
@@ -2604,12 +2717,7 @@ document
 
       populatePrintWindowContent(printWindow, saleReceiptData, format, true);
 
-      state.cart = [];
-      if (document.getElementById("pos-discount-input"))
-        document.getElementById("pos-discount-input").value = 0;
-      if (document.getElementById("pos-paid-amount"))
-        document.getElementById("pos-paid-amount").value = "";
-      renderCart();
+      finishActiveInvoiceDraft();
     } catch (err) {
       if (!navigator.onLine || ["unavailable", "deadline-exceeded", "network-request-failed"].includes(err.code)) {
         await queueOfflineOperation("sale", salePayload);
@@ -2619,10 +2727,7 @@ document
           invoiceNumber: localInvoiceNumber,
           items: saleItems,
         }, format, true);
-        state.cart = [];
-        if (document.getElementById("pos-discount-input")) document.getElementById("pos-discount-input").value = 0;
-        if (document.getElementById("pos-paid-amount")) document.getElementById("pos-paid-amount").value = "";
-        renderCart();
+        finishActiveInvoiceDraft();
         return;
       }
       if (printWindow) printWindow.close();
@@ -2854,7 +2959,7 @@ const renderCustomersTable = () => {
         <button class="btn btn-sm btn-secondary" onclick="window.openCustomerLedger('${c.id}')"><i class="fa-solid fa-book"></i> Ledger</button>
         <button class="btn btn-sm btn-secondary" onclick="window.editCustomerModal('${c.id}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-sm btn-accent" onclick="window.receiveCustomerPayment('${c.id}')"><i class="fa-solid fa-hand-holding-dollar"></i> Clear Udhaar</button>
-        <button class="btn btn-sm btn-danger" onclick="window.deleteCustomer('${c.id}')"><i class="fa-solid fa-trash"></i></button>
+        <button class="btn btn-sm btn-danger" title="Remove customer" aria-label="Remove customer" onclick="window.deleteCustomer('${c.id}')"><i class="fa-solid fa-trash"></i> Remove</button>
       </td>
     `;
     tbody.appendChild(tr);

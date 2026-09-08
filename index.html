@@ -278,9 +278,14 @@
             <div class="pos-right card">
               <div class="cart-header">
                 <h3><i class="fa-solid fa-cart-flatbed"></i> Current Invoice Cart</h3>
-                <button id="pos-clear-cart" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i>
-                  Clear</button>
+                <div class="cart-header-actions">
+                  <button id="pos-new-invoice-btn" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i>
+                    New Invoice</button>
+                  <button id="pos-clear-cart" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i>
+                    Clear</button>
+                </div>
               </div>
+              <div id="open-invoice-drafts" class="open-invoice-drafts" aria-label="Open invoices"></div>
 
               <!-- Customer Selector -->
               <div class="cart-customer-select">
