@@ -729,6 +729,12 @@ textarea:focus {
   box-shadow: var(--shadow-md);
 }
 
+.pos-product-card.keyboard-focus {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+  border-color: var(--primary-color);
+}
+
 .pos-product-title {
   font-size: 0.85rem;
   font-weight: 600;

@@ -87,6 +87,14 @@ let pendingListenerCount = 0;
 let queuedOperationCount = 0;
 let syncingOutbox = false;
 
+const keyboardNavigationState = {
+  activeProductIndex: 0,
+  lastProductElement: null,
+  modalFocusElement: null,
+  inventoryRowIndex: 0,
+  inventoryActionIndex: 0,
+};
+
 const OUTBOX_DB_NAME = "pos-by-basit-outbox";
 const OUTBOX_STORE_NAME = "operations";
 let outboxDatabasePromise = null;
@@ -803,6 +811,8 @@ const initKeyboardControls = () => {
 
   // Global keyboard event listener
   document.addEventListener("keydown", (e) => {
+    if (handleKeyboardNavigation(e)) return;
+
     // Ignore if user is typing in an input field (unless it's a special shortcut)
     const isInput =
       e.target.tagName === "INPUT" ||
@@ -850,6 +860,226 @@ const initKeyboardControls = () => {
       }
     }
   });
+
+  initKeyboardNavigationObserver();
+};
+
+const getModalFocusableElements = () => {
+  const modal = document.getElementById("modal-container");
+  if (!modal || modal.classList.contains("hidden")) return [];
+  return Array.from(
+    modal.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((element) => element.offsetParent !== null);
+};
+
+const focusActiveProduct = (index = keyboardNavigationState.activeProductIndex, shouldFocus = true) => {
+  const cards = Array.from(document.querySelectorAll("#pos-product-grid .pos-product-card"));
+  if (!cards.length) return;
+
+  keyboardNavigationState.activeProductIndex = Math.max(0, Math.min(index, cards.length - 1));
+  cards.forEach((card, cardIndex) => {
+    const isActive = cardIndex === keyboardNavigationState.activeProductIndex;
+    card.classList.toggle("keyboard-focus", isActive);
+    card.tabIndex = isActive ? 0 : -1;
+    card.setAttribute("aria-selected", String(isActive));
+  });
+
+  const activeCard = cards[keyboardNavigationState.activeProductIndex];
+  keyboardNavigationState.lastProductElement = activeCard;
+  if (shouldFocus) {
+    activeCard.focus({ preventScroll: true });
+    activeCard.scrollIntoView({ block: "nearest" });
+  }
+};
+
+const restoreProductFocus = () => {
+  const cards = Array.from(document.querySelectorAll("#pos-product-grid .pos-product-card"));
+  const index = keyboardNavigationState.lastProductElement
+    ? cards.indexOf(keyboardNavigationState.lastProductElement)
+    : keyboardNavigationState.activeProductIndex;
+  if (index > -1) focusActiveProduct(index);
+};
+
+const handleModalKeyboardNavigation = (e) => {
+  const modal = document.getElementById("modal-container");
+  if (!modal || modal.classList.contains("hidden")) return false;
+
+  const focusableElements = getModalFocusableElements();
+  if (!focusableElements.length) return true;
+
+  const currentIndex = focusableElements.indexOf(document.activeElement);
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeModal();
+    return true;
+  }
+
+  if (e.key === "Enter") {
+    const primaryAction = modal.querySelector(
+      'button[type="submit"]:not([disabled]), .btn-primary:not([disabled]), #delete-confirm-approve:not([disabled])'
+    );
+    if (primaryAction && !["BUTTON", "A"].includes(e.target.tagName)) {
+      e.preventDefault();
+      primaryAction.click();
+      return true;
+    }
+  }
+
+  if (e.key === "Tab" || ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+    e.preventDefault();
+    const direction = e.key === "ArrowUp" || e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey) ? -1 : 1;
+    const nextIndex = (currentIndex + direction + focusableElements.length) % focusableElements.length;
+    focusableElements[nextIndex].focus();
+    return true;
+  }
+
+  return true;
+};
+
+const getGlobalFocusableElements = () =>
+  Array.from(
+    document.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'
+    )
+  ).filter((element) => {
+    const isInModal = element.closest("#modal-container");
+    return !isInModal && element.offsetParent !== null;
+  });
+
+const getInventoryActionRows = () =>
+  Array.from(document.querySelectorAll("#products-table-body tr")).map((row) =>
+    Array.from(row.querySelectorAll("button:not([disabled]), a[href]"))
+  ).filter((actions) => actions.length);
+
+const handleInventoryKeyboardNavigation = (e) => {
+  if (!document.getElementById("page-products")?.classList.contains("active")) return false;
+  if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return false;
+
+  const activeElement = document.activeElement;
+  if (!activeElement?.closest("#products-table-body")) return false;
+
+  const actionRows = getInventoryActionRows();
+  if (!actionRows.length) return false;
+
+  const currentRowIndex = actionRows.findIndex((actions) => actions.includes(activeElement));
+  const currentActions = actionRows[Math.max(0, currentRowIndex)];
+  const currentActionIndex = Math.max(0, currentActions.indexOf(activeElement));
+  let nextRowIndex = Math.max(0, currentRowIndex);
+  let nextActionIndex = currentActionIndex;
+
+  if (e.key === "ArrowUp") nextRowIndex -= 1;
+  if (e.key === "ArrowDown") nextRowIndex += 1;
+  if (e.key === "ArrowLeft") nextActionIndex -= 1;
+  if (e.key === "ArrowRight") nextActionIndex += 1;
+
+  nextRowIndex = Math.max(0, Math.min(nextRowIndex, actionRows.length - 1));
+  nextActionIndex = Math.max(0, Math.min(nextActionIndex, actionRows[nextRowIndex].length - 1));
+  keyboardNavigationState.inventoryRowIndex = nextRowIndex;
+  keyboardNavigationState.inventoryActionIndex = nextActionIndex;
+  e.preventDefault();
+  const nextElement = actionRows[nextRowIndex][nextActionIndex];
+  nextElement.focus();
+  nextElement.scrollIntoView({ block: "nearest" });
+  return true;
+};
+
+const handleSearchKeyboardNavigation = (e) => {
+  if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return false;
+
+  const searchElement = e.target;
+  if (searchElement.id === "product-search-input") {
+    const actionRows = getInventoryActionRows();
+    if (!actionRows.length) return false;
+
+    const focusedAction = actionRows.findIndex((actions) => actions.includes(document.activeElement));
+    const currentRow = focusedAction > -1 ? focusedAction : e.key === "ArrowUp" ? 0 : -1;
+    const nextRow = Math.max(0, Math.min(currentRow + (e.key === "ArrowUp" ? -1 : 1), actionRows.length - 1));
+    const actionIndex = e.key === "ArrowLeft" ? 0 : e.key === "ArrowRight" ? actionRows[nextRow].length - 1 : 0;
+    e.preventDefault();
+    actionRows[nextRow][actionIndex].focus();
+    actionRows[nextRow][actionIndex].scrollIntoView({ block: "nearest" });
+    return true;
+  }
+
+  if (searchElement.id === "pos-search") {
+    const grid = document.getElementById("pos-product-grid");
+    const cards = Array.from(grid?.querySelectorAll(".pos-product-card") || []);
+    if (!cards.length) return false;
+
+    const focusedIndex = cards.indexOf(document.activeElement);
+    const currentIndex = focusedIndex > -1 ? focusedIndex : e.key === "ArrowUp" ? 0 : -1;
+    const columns = Math.max(1, Math.round(grid.clientWidth / cards[0].getBoundingClientRect().width));
+    const offset = e.key === "ArrowUp" ? -columns : e.key === "ArrowDown" ? columns : e.key === "ArrowLeft" ? -1 : 1;
+    e.preventDefault();
+    focusActiveProduct(Math.max(0, Math.min(currentIndex + offset, cards.length - 1)));
+    return true;
+  }
+
+  return false;
+};
+
+const handleKeyboardNavigation = (e) => {
+  if (handleModalKeyboardNavigation(e)) return true;
+
+  if (handleSearchKeyboardNavigation(e)) return true;
+
+  if (["INPUT", "TEXTAREA"].includes(e.target.tagName) || e.target.isContentEditable) return false;
+
+  if (handleInventoryKeyboardNavigation(e)) return true;
+
+  const grid = document.getElementById("pos-product-grid");
+  const cards = Array.from(grid?.querySelectorAll(".pos-product-card") || []);
+
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+    e.preventDefault();
+
+    if (cards.length && document.getElementById("page-pos")?.classList.contains("active")) {
+      const columns = Math.max(1, Math.round(grid.clientWidth / cards[0].getBoundingClientRect().width));
+      const offset = e.key === "ArrowUp" ? -columns : e.key === "ArrowDown" ? columns : e.key === "ArrowLeft" ? -1 : 1;
+      focusActiveProduct(keyboardNavigationState.activeProductIndex + offset);
+      return true;
+    }
+
+    const focusableElements = getGlobalFocusableElements();
+    if (!focusableElements.length) return true;
+    const currentIndex = focusableElements.indexOf(document.activeElement);
+    const direction = e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1;
+    const nextIndex = (currentIndex + direction + focusableElements.length) % focusableElements.length;
+    focusableElements[nextIndex].focus();
+    return true;
+  }
+
+  if (e.key === "Enter" && document.activeElement?.classList.contains("pos-product-card")) {
+    e.preventDefault();
+    document.activeElement.click();
+    return true;
+  }
+
+  return false;
+};
+
+const initKeyboardNavigationObserver = () => {
+  const modal = document.getElementById("modal-container");
+  if (!modal) return;
+
+  new MutationObserver(() => {
+    if (!modal.classList.contains("hidden")) {
+      if (!keyboardNavigationState.modalFocusElement) {
+        const activeProduct = document.activeElement?.closest?.("#pos-product-grid .pos-product-card");
+        if (activeProduct) keyboardNavigationState.lastProductElement = activeProduct;
+        const firstFocusable = getModalFocusableElements()[0];
+        if (firstFocusable) {
+          keyboardNavigationState.modalFocusElement = firstFocusable;
+          firstFocusable.focus();
+        }
+      }
+    } else if (keyboardNavigationState.modalFocusElement) {
+      keyboardNavigationState.modalFocusElement = null;
+      restoreProductFocus();
+    }
+  }).observe(modal, { attributes: true, childList: true, subtree: true });
 };
 
 const showKeyboardShortcuts = () => {
@@ -2290,6 +2520,8 @@ const renderPosProducts = () => {
   filtered.forEach((p) => {
     const card = document.createElement("div");
     card.className = "pos-product-card";
+    card.tabIndex = -1;
+    card.setAttribute("role", "option");
     card.onclick = () => addToCart(p);
     card.innerHTML = `
       <div>
@@ -2300,6 +2532,8 @@ const renderPosProducts = () => {
     `;
     grid.appendChild(card);
   });
+
+  focusActiveProduct(keyboardNavigationState.activeProductIndex, false);
 };
 
 const addToCart = (product) => {
