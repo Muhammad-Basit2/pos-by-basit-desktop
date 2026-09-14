@@ -683,54 +683,166 @@ const populatePrintWindowContent = (
       <head>
         <title>Receipt - ${saleData.invoiceNumber}</title>
         <meta charset="utf-8">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
         <style>
           ${pageCss}
-          body { ${bodyStyle} font-family: 'Inter', 'Noto Nastaliq Urdu', sans-serif; padding: 6px; color: #17212b; }
-          .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; direction: rtl; line-height: 2; }
-          h2, p { text-align: center; margin: 2px 0; }
-          h2 { color:#0f766e; font-size:18px; }
-          .receipt-logo { display:block; width:auto; max-width:54mm; max-height:18mm; margin:0 auto 3px; object-fit:contain; }
-          table { width:100%; border-collapse:collapse; margin-top:10px; }
-          td { padding:5px 0; vertical-align:top; border-bottom:1px solid #dbe4e8; }
-          .border-top { border-top:1px solid #0f766e; }
-          .total-row { font-weight:bold; font-size:12px; color:#0f766e; }
-          .small { font-size:9px; color:#64748b; }
-          .receipt-rule { color:#94a3b8; }
+          body {
+            ${bodyStyle}
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            color: #111;
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.35;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .receipt-box {
+            width: 100%;
+            background: #fff;
+            border: 3px solid #111;
+            box-sizing: border-box;
+            padding: 10px 12px 12px;
+          }
+          .center { text-align: center; }
+          .shop-name {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+            margin: 0;
+            color: #111;
+          }
+          .phone {
+            font-size: 19px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-top: 2px;
+            color: #111;
+          }
+          .rule {
+            border-top: 2px dashed #111;
+            margin: 8px 0 7px;
+          }
+          .invoice-meta {
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.5;
+            margin: 0;
+          }
+          .time-line {
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.5;
+            margin: 2px 0 0;
+          }
+          .customer-line {
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.5;
+            margin: 0;
+          }
+          .items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+          }
+          .items td {
+            padding: 3px 0;
+            font-size: 13px;
+            vertical-align: top;
+            color: #111;
+          }
+          .item-name {
+            width: 70%;
+            text-align: left;
+            font-weight: 700;
+          }
+          .item-amount {
+            width: 30%;
+            text-align: right;
+            font-weight: 700;
+          }
+          .totals {
+            width: 100%;
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: 700;
+          }
+          .totals-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 4px 0;
+            border-bottom: 1px dashed #111;
+          }
+          .totals-row.grand {
+            border-top: 2px solid #111;
+            border-bottom: 2px solid #111;
+            padding-top: 8px;
+            margin-top: 4px;
+            font-weight: 900;
+            font-size: 18px;
+          }
+          .footer {
+            margin-top: 12px;
+            font-size: 12px;
+            text-align: center;
+            font-weight: 700;
+            font-style: italic;
+          }
+          .urdu-text {
+            font-family: 'Noto Nastaliq Urdu', serif;
+            direction: rtl;
+            font-size: 12px;
+            margin-top: 8px;
+          }
         </style>
       </head>
       <body>
-        ${currentBusiness?.logoDataUrl ? `<img class="receipt-logo" src="${currentBusiness.logoDataUrl}" alt="Shop logo">` : `<h2>${currentBusiness?.shopName || "PakPOS Store"}</h2>`}
-        <p class="small">${currentBusiness?.address || ""}</p>
-        <p class="small">Phone: ${currentBusiness?.phone || "N/A"}</p>
-        <p class="receipt-rule">--------------------------------</p>
-        <p>Invoice: ${saleData.invoiceNumber}</p>
-        <p>Customer: ${saleData.customerName}</p>
-        <p class="receipt-rule">--------------------------------</p>
-        <table>
-          ${itemsHtml}
-          <tr class="border-top">
-            <td>Subtotal:</td>
-            <td style="text-align: right;">${formatCurrency(saleData.subtotal)}</td>
-          </tr>
-          ${saleData.discount > 0 ? `<tr><td>Discount:</td><td style="text-align: right;">-${formatCurrency(saleData.discount)}</td></tr>` : ""}
-          ${saleData.taxAmount > 0 ? `<tr><td>GST:</td><td style="text-align: right;">${formatCurrency(saleData.taxAmount)}</td></tr>` : ""}
-          <tr class="total-row border-top">
-            <td>Grand Total:</td>
-            <td style="text-align: right;">${formatCurrency(saleData.grandTotal)}</td>
-          </tr>
-          <tr>
-            <td>Paid:</td>
-            <td style="text-align: right;">${formatCurrency(saleData.paidAmount)}</td>
-          </tr>
-          <tr>
-            <td>Balance:</td>
-            <td style="text-align: right;">${formatCurrency(saleData.balanceDue)}</td>
-          </tr>
-        </table>
-        <p class="urdu-text" dir="auto" style="margin-top: 10px; text-align:center;">${currentBusiness?.invoiceFooter || "Thank you for shopping!"}</p>
+        <div class="receipt-box">
+          <div class="center">
+            <div class="shop-name">${currentBusiness?.shopName || "BASIT K/S"}</div>
+            <div class="phone">Phone: ${currentBusiness?.phone || "03xxxxxxxxx"}</div>
+          </div>
+
+          <div class="rule"></div>
+
+          <p class="invoice-meta">Invoice: <span>${saleData.invoiceNumber}</span></p>
+          <p class="time-line">Date &amp; Time: <span>${new Date(saleData.createdAt || Date.now()).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span></p>
+          <p class="customer-line">Customer: <span>${saleData.customerName || "Walk-in Customer"}</span></p>
+
+          <div class="rule"></div>
+
+          <table class="items">
+            ${saleData.items.map((item) => `
+              <tr>
+                <td class="item-name">${item.name} ${item.qty > 1 ? `(${item.qty} pieces)` : ""}</td>
+                <td class="item-amount">Rs. ${Number(item.lineTotal || 0).toFixed(2)}</td>
+              </tr>
+            `).join("")}
+          </table>
+
+          <div class="totals">
+            <div class="totals-row">
+              <span>Subtotal:</span>
+              <span>Rs. ${Number(saleData.subtotal || 0).toFixed(2)}</span>
+            </div>
+            <div class="totals-row grand">
+              <span>Grand Total:</span>
+              <span>Rs. ${Number(saleData.grandTotal || 0).toFixed(2)}</span>
+            </div>
+            <div class="totals-row">
+              <span>Paid:</span>
+              <span>Rs. ${Number(saleData.paidAmount || 0).toFixed(2)}</span>
+            </div>
+            <div class="totals-row">
+              <span>Balance:</span>
+              <span>Rs. ${Number(saleData.balanceDue || 0).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="footer">Thanks for Shopping</div>
+          <div class="urdu-text center">${currentBusiness?.invoiceFooter || "آپ کا شکریہ"}</div>
+        </div>
         <script>${autoPrint ? "window.onload = () => { setTimeout(() => { window.print(); }, 200); };" : ""}</script>
       </body>
     </html>
