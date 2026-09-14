@@ -683,6 +683,9 @@ const populatePrintWindowContent = (
       <head>
         <title>Receipt - ${saleData.invoiceNumber}</title>
         <meta charset="utf-8">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
         <style>
           ${pageCss}
           body {
@@ -697,45 +700,47 @@ const populatePrintWindowContent = (
             print-color-adjust: exact;
           }
           .receipt-box {
-            width: 100%;
+            width: 80mm;
+            max-width: 80mm;
+            min-width: 80mm;
             background: #fff;
-            border: 3px solid #111;
             box-sizing: border-box;
-            padding: 10px 12px 12px;
+            padding: 8px 8px 10px;
+            border: none;
           }
           .center { text-align: center; }
           .shop-name {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 800;
             letter-spacing: 0.2px;
             margin: 0;
             color: #111;
           }
           .phone {
-            font-size: 19px;
+            font-size: 17px;
             font-weight: 700;
             line-height: 1.2;
             margin-top: 2px;
             color: #111;
           }
           .rule {
-            border-top: 2px dashed #111;
+            border-top: 1.5px dashed #111;
             margin: 8px 0 7px;
           }
           .invoice-meta {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             line-height: 1.5;
             margin: 0;
           }
           .time-line {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             line-height: 1.5;
             margin: 2px 0 0;
           }
           .customer-line {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             line-height: 1.5;
             margin: 0;
@@ -746,32 +751,47 @@ const populatePrintWindowContent = (
             margin-top: 8px;
           }
           .items td {
-            padding: 3px 0;
+            padding: 7px 2px;
             font-size: 13px;
             vertical-align: top;
             color: #111;
+          }
+          .items tr {
+            border-bottom: 1px solid #111;
           }
           .item-name {
             width: 70%;
             text-align: left;
             font-weight: 700;
+            padding-right: 4px;
+          }
+          .item-name.urdu {
+            font-family: 'Noto Nastaliq Urdu', serif;
+            direction: rtl;
+            unicode-bidi: plaintext;
+            text-align: left;
+            font-size: 16px;
+            line-height: 1.25;
+            font-weight: 700;
+            letter-spacing: 0.1px;
           }
           .item-amount {
             width: 30%;
             text-align: right;
             font-weight: 700;
+            font-size: 15px;
           }
           .totals {
             width: 100%;
             margin-top: 10px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
           }
           .totals-row {
             display: flex;
             justify-content: space-between;
             gap: 10px;
-            padding: 4px 0;
+            padding: 6px 2px;
             border-bottom: 1px dashed #111;
           }
           .totals-row.grand {
@@ -780,11 +800,11 @@ const populatePrintWindowContent = (
             padding-top: 8px;
             margin-top: 4px;
             font-weight: 900;
-            font-size: 18px;
+            font-size: 16px;
           }
           .footer {
             margin-top: 12px;
-            font-size: 12px;
+            font-size: 11px;
             text-align: center;
             font-weight: 700;
             font-style: italic;
@@ -792,8 +812,9 @@ const populatePrintWindowContent = (
           .urdu-text {
             font-family: 'Noto Nastaliq Urdu', serif;
             direction: rtl;
-            font-size: 12px;
+            font-size: 13px;
             margin-top: 8px;
+            line-height: 1.6;
           }
         </style>
       </head>
@@ -813,12 +834,15 @@ const populatePrintWindowContent = (
           <div class="rule"></div>
 
           <table class="items">
-            ${saleData.items.map((item) => `
-              <tr>
-                <td class="item-name">${item.name} ${item.qty > 1 ? `(${item.qty} pieces)` : ""}</td>
-                <td class="item-amount">Rs. ${Number(item.lineTotal || 0).toFixed(2)}</td>
-              </tr>
-            `).join("")}
+            ${saleData.items.map((item) => {
+              const isUrduItem = /[\u0600-\u06FF]/.test(String(item.name || ""));
+              return `
+                <tr>
+                  <td class="item-name ${isUrduItem ? 'urdu' : ''}">${item.name} ${item.qty > 1 ? `(${item.qty})` : ""}</td>
+                  <td class="item-amount">Rs. ${Number(item.lineTotal || 0).toFixed(2)}</td>
+                </tr>
+              `;
+            }).join("")}
           </table>
 
           <div class="totals">
