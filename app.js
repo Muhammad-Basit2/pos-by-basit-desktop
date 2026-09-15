@@ -1753,6 +1753,9 @@ const initAppListeners = () => {
     .getElementById("load-demo-data-btn")
     ?.addEventListener("click", seedDemoData);
   document
+    .getElementById("delete-all-stock-btn")
+    ?.addEventListener("click", deleteAllStock);
+  document
     .getElementById("import-products-btn")
     ?.addEventListener("click", () => document.getElementById("import-products-file")?.click());
   document
@@ -1770,6 +1773,18 @@ const initAppListeners = () => {
   document
     .getElementById("export-sales-csv")
     ?.addEventListener("click", exportSalesCSV);
+  document
+    .getElementById("export-customers-excel")
+    ?.addEventListener("click", exportCustomersExcel);
+  document
+    .getElementById("export-customers-pdf")
+    ?.addEventListener("click", () => exportRecordsPDF("customers"));
+  document
+    .getElementById("export-products-excel")
+    ?.addEventListener("click", exportProductsExcel);
+  document
+    .getElementById("export-products-pdf")
+    ?.addEventListener("click", () => exportRecordsPDF("products"));
   document
     .getElementById("add-expense-btn")
     ?.addEventListener("click", () => openExpenseFormModal());
@@ -2859,7 +2874,11 @@ const renderCart = () => {
     el.innerHTML = `
       <div class="cart-item-info">
         <div class="cart-item-title">${item.name}</div>
-        <div class="cart-item-unit-price">${formatCurrency(item.sellingPrice)} / ${item.unit}</div>
+        <label class="cart-item-rate">
+          Rate / ${item.unit}
+          <input type="number" min="0" step="0.01" value="${item.sellingPrice}"
+                 onchange="window.updateCartRate(${index}, this.value)" aria-label="Rate for ${item.name}">
+        </label>
       </div>
       <div class="cart-item-qty-controls">
         <input type="number" step="${item.unit === "KG" || item.unit === "Gram" ? "0.05" : "1"}" 
@@ -2884,6 +2903,17 @@ window.updateCartQty = (index, val) => {
   } else {
     state.cart[index].qty = parsed;
   }
+  renderCart();
+};
+
+window.updateCartRate = (index, val) => {
+  const parsed = parseFloat(val);
+  if (isNaN(parsed) || parsed < 0) {
+    showToast("Enter a valid rate.", "error");
+    renderCart();
+    return;
+  }
+  state.cart[index].sellingPrice = parsed;
   renderCart();
 };
 
@@ -4471,6 +4501,35 @@ const seedDemoData = async () => {
   }
 };
 
+const deleteAllStock = async () => {
+  if (state.products.length === 0) {
+    showToast("There is no stock to delete.", "info");
+    return;
+  }
+
+  const confirmed = await showDeleteConfirmation(
+    `All ${state.products.length} stock item${state.products.length === 1 ? "" : "s"} will be permanently deleted. Sales and purchase records will remain.`,
+  );
+  if (!confirmed) return;
+
+  toggleLoader(true, "Deleting all stock...");
+  try {
+    await Promise.all(
+      state.products.map((product) => deleteDoc(doc(db, "products", product.id))),
+    );
+    state.products = [];
+    state.cart = [];
+    renderProductsTable();
+    renderPosProducts();
+    renderCart();
+    showToast("All stock deleted.", "info");
+  } catch (err) {
+    showToast(`Unable to delete all stock: ${err.message}`, "error");
+  } finally {
+    toggleLoader(false);
+  }
+};
+
 const exportProductsCSV = () => {
   let csv = "Barcode,Product Name,Category,Unit,Cost,Price,Stock\n";
   state.products.forEach((p) => {
@@ -4488,6 +4547,127 @@ const exportSalesCSV = () => {
     csv += `"${s.invoiceNumber}","${s.customerName}",${s.grandTotal},"${s.paymentMethod}","${d}"\n`;
   });
   downloadCSV(csv, "sales_export.csv");
+};
+
+const exportToExcel = (rows, sheetName, filename) => {
+  if (typeof XLSX === "undefined") {
+    showToast("Excel export is unavailable. Please reconnect and try again.", "error");
+    return;
+  }
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, filename);
+  showToast(`${sheetName} exported to Excel.`, "success");
+};
+
+const exportCustomersExcel = () => {
+  exportToExcel(
+    state.customers.map((customer) => ({
+      Name: customer.name || "",
+      Phone: customer.phone || "",
+      CNIC: customer.cnic || "",
+      Balance: customer.balance || 0,
+    })),
+    "Customers",
+    "customers_export.xlsx",
+  );
+};
+
+const exportProductsExcel = () => {
+  exportToExcel(
+    state.products.map((product) => ({
+      Barcode: product.barcode || product.sku || "",
+      "Product Name": product.name || "",
+      Category: product.category || "",
+      Unit: product.unit || "",
+      Cost: product.purchasePrice || 0,
+      Price: product.sellingPrice || 0,
+      Stock: product.currentStock || 0,
+    })),
+    "Stock",
+    "stock_export.xlsx",
+  );
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const exportRecordsPDF = async (type) => {
+  const isCustomers = type === "customers";
+  const title = isCustomers ? "Customers" : "Stock Inventory";
+  const filename = isCustomers ? "customers_export" : "stock_export";
+  const columns = isCustomers
+    ? ["Name", "Phone", "CNIC", "Balance"]
+    : ["Barcode", "Product Name", "Category", "Unit", "Cost", "Price", "Stock"];
+  const rows = isCustomers
+    ? state.customers.map((customer) => [
+      customer.name || "",
+      customer.phone || "",
+      customer.cnic || "",
+      formatCurrency(customer.balance || 0),
+    ])
+    : state.products.map((product) => [
+      product.barcode || product.sku || "",
+      product.name || "",
+      product.category || "",
+      product.unit || "",
+      formatCurrency(product.purchasePrice || 0),
+      formatCurrency(product.sellingPrice || 0),
+      product.currentStock || 0,
+    ]);
+  const tableRows = rows.map((row) =>
+    `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
+  ).join("");
+  const tableHeaders = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
+  const html = `
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(title)}</title>
+        <style>
+          @page { size: A4 portrait; margin: 12mm; }
+          body { font-family: Arial, sans-serif; color: #17212b; }
+          h1 { color: #0f766e; margin-bottom: 4px; }
+          p { color: #64748b; margin-top: 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #0f766e; color: #fff; text-align: left; }
+          th, td { border: 1px solid #dbe4e8; padding: 8px; font-size: 11px; }
+          tr:nth-child(even) { background: #f8fafb; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(currentBusiness?.shopName || "POS By Basit")}</h1>
+        <p>${escapeHtml(title)} | ${escapeHtml(new Date().toLocaleDateString())}</p>
+        <table><thead><tr>${tableHeaders}</tr></thead><tbody>${tableRows || `<tr><td colspan="${columns.length}">No records found.</td></tr>`}</tbody></table>
+      </body>
+    </html>`;
+  const ipcRenderer = window.require?.("electron")?.ipcRenderer;
+  if (!ipcRenderer) {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) return;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    return;
+  }
+  try {
+    const result = await ipcRenderer.invoke("save-invoice-pdf", {
+      html,
+      invoiceNumber: filename,
+      format: "A4",
+    });
+    if (!result?.canceled) showToast(`${title} PDF saved locally.`, "success");
+  } catch (error) {
+    showToast(`Unable to export ${title.toLowerCase()} PDF: ${error.message}`, "error");
+  }
 };
 
 const normalizeSpreadsheetKey = (key) =>

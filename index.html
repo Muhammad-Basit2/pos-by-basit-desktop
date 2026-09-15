@@ -668,6 +668,8 @@
                   test out the system immediately.</p>
                 <button id="load-demo-data-btn" class="btn btn-accent" style="margin-bottom: 20px;"><i
                     class="fa-solid fa-vial"></i> Load Pakistani Demo Inventory</button>
+                <button id="delete-all-stock-btn" class="btn btn-danger" style="margin-bottom: 20px;"><i
+                  class="fa-solid fa-trash-can"></i> Delete All Stock</button>
                 <hr>
                 <h4>Import Spreadsheet Data</h4>
                 <p>Upload an Excel or CSV file. Product columns: Name, Barcode/SKU, Category, Unit, Cost, Price, Stock. Customer columns: Name, Phone, CNIC, Balance.</p>
@@ -678,12 +680,16 @@
                 <input type="file" id="import-products-file" accept=".xlsx,.xls,.csv" class="hidden">
                 <input type="file" id="import-customers-file" accept=".xlsx,.xls,.csv" class="hidden">
                 <hr>
-                <h4>CSV Export Capabilities</h4>
+                <h4>Data Export</h4>
                 <div class="button-group" style="margin-top: 10px;">
                   <button id="export-products-csv" class="btn btn-secondary"><i class="fa-solid fa-file-csv"></i> Export
                     Products CSV</button>
                   <button id="export-sales-csv" class="btn btn-secondary"><i class="fa-solid fa-file-csv"></i> Export
                     Sales CSV</button>
+                  <button id="export-customers-excel" class="btn btn-secondary"><i class="fa-solid fa-file-excel"></i> Customers Excel</button>
+                  <button id="export-customers-pdf" class="btn btn-secondary"><i class="fa-solid fa-file-pdf"></i> Customers PDF</button>
+                  <button id="export-products-excel" class="btn btn-secondary"><i class="fa-solid fa-file-excel"></i> Stock Excel</button>
+                  <button id="export-products-pdf" class="btn btn-secondary"><i class="fa-solid fa-file-pdf"></i> Stock PDF</button>
                 </div>
               </div>
             </div>

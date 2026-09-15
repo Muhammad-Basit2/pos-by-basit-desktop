@@ -897,6 +897,22 @@ textarea:focus {
   color: var(--text-muted);
 }
 
+.cart-item-rate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.cart-item-rate input {
+  width: 76px;
+  padding: 3px 5px;
+  text-align: right;
+  color: var(--text-color);
+}
+
 .cart-item-qty-controls {
   display: flex;
   align-items: center;
