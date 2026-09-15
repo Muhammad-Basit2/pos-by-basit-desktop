@@ -672,13 +672,13 @@
                   class="fa-solid fa-trash-can"></i> Delete All Stock</button>
                 <hr>
                 <h4>Import Spreadsheet Data</h4>
-                <p>Upload an Excel or CSV file. Product columns: Name, Barcode/SKU, Category, Unit, Cost, Price, Stock. Customer columns: Name, Phone, CNIC, Balance.</p>
+                <p>Upload an Excel (.xlsx/.xls) or CSV file. Product columns: Name, Barcode/SKU, Category, Unit, Cost, Price, Stock. Customer columns: Name, Phone, CNIC, Balance.</p>
                 <div class="button-group" style="margin-top: 10px;">
                   <button id="import-products-btn" class="btn btn-secondary"><i class="fa-solid fa-file-import"></i> Import Stock</button>
                   <button id="import-customers-btn" class="btn btn-secondary"><i class="fa-solid fa-user-plus"></i> Import Customers</button>
                 </div>
-                <input type="file" id="import-products-file" accept=".xlsx,.xls,.csv" class="hidden">
-                <input type="file" id="import-customers-file" accept=".xlsx,.xls,.csv" class="hidden">
+                <input type="file" id="import-products-file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" class="hidden">
+                <input type="file" id="import-customers-file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" class="hidden">
                 <hr>
                 <h4>Data Export</h4>
                 <div class="button-group" style="margin-top: 10px;">

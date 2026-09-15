@@ -4807,6 +4807,21 @@ const parseCSVRows = (text) => {
   }, {}));
 };
 
+const decodeCsvBytes = (bytes) => {
+  const hasUtf16Pattern = bytes[1] === 0 || bytes[3] === 0;
+  if ((bytes[0] === 0xff && bytes[1] === 0xfe) || hasUtf16Pattern) {
+    return new TextDecoder("utf-16le").decode(bytes);
+  }
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(bytes);
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1256").decode(bytes);
+  }
+};
+
 const readSpreadsheetRows = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -4814,7 +4829,8 @@ const readSpreadsheetRows = (file) =>
     reader.onload = (event) => {
       try {
         if (isCSV) {
-          resolve(parseCSVRows(event.target.result));
+          const bytes = new Uint8Array(event.target.result);
+          resolve(parseCSVRows(decodeCsvBytes(bytes)));
           return;
         }
         if (typeof XLSX === "undefined") {
@@ -4829,8 +4845,7 @@ const readSpreadsheetRows = (file) =>
       }
     };
     reader.onerror = () => reject(new Error("The spreadsheet file could not be opened."));
-    if (isCSV) reader.readAsText(file, "UTF-8");
-    else reader.readAsArrayBuffer(file);
+    reader.readAsArrayBuffer(file);
   });
 
 const importSpreadsheet = async (file, type) => {
@@ -4840,12 +4855,23 @@ const importSpreadsheet = async (file, type) => {
   toggleLoader(true, `Importing ${type === "products" ? "stock" : "customers"}...`);
 
   try {
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls") && !fileName.endsWith(".csv")) {
+      throw new Error("Please select an Excel (.xlsx/.xls) or CSV file.");
+    }
     const rows = await readSpreadsheetRows(file);
     if (!rows.length) throw new Error("The spreadsheet has no data rows.");
+    const hasCorruptedText = rows.some((row) =>
+      Object.values(row).some((value) => String(value).includes("????")),
+    );
+    if (hasCorruptedText) {
+      throw new Error("This CSV already contains ???? instead of Urdu text. Re-save it as UTF-8 CSV and import again.");
+    }
 
     let imported = 0;
     let updated = 0;
     let skipped = 0;
+    const importedCategories = new Set();
     for (const row of rows) {
       if (type === "products") {
         const name = String(spreadsheetValue(row, "name", "product name", "item") || "").trim();
@@ -4869,6 +4895,7 @@ const importSpreadsheet = async (file, type) => {
           minStockAlert: Number(spreadsheetValue(row, "minimum stock", "min stock alert")) || 5,
           updatedAt: serverTimestamp(),
         };
+        if (data.category) importedCategories.add(data.category);
         if (existing) {
           await updateDoc(doc(db, "products", existing.id), data);
           updated++;
@@ -4902,6 +4929,16 @@ const importSpreadsheet = async (file, type) => {
           imported++;
         }
       }
+    }
+    const newCategories = [...importedCategories].filter(
+      (category) => !state.categories.some((existing) => existing.toLowerCase() === category.toLowerCase()),
+    );
+    if (newCategories.length) {
+      state.categories = [...state.categories, ...newCategories];
+      currentBusiness = { ...currentBusiness, categories: state.categories };
+      await updateDoc(doc(db, "businesses", businessId), { categories: state.categories });
+      populateCategoryDropdowns();
+      renderCategoryChips();
     }
     showToast(`Import complete: ${imported} added, ${updated} updated${skipped ? `, ${skipped} skipped` : ""}.`, "success");
   } catch (error) {
