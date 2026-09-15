@@ -2239,6 +2239,16 @@ video {
   margin-top: 8px;
 }
 
+.category-manager-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  min-height: 42px;
+}
+
 @media (max-width: 600px) {
   .delete-confirm-modal {
     padding: 24px 18px;

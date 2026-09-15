@@ -1351,6 +1351,12 @@ const loadUserProfileAndBusiness = async () => {
         tax: 0,
       };
     }
+    state.categories = [
+      ...new Set([
+        ...state.categories,
+        ...(Array.isArray(currentBusiness.categories) ? currentBusiness.categories : []),
+      ]),
+    ];
 
     const shopElem = document.getElementById("sidebar-shop-name");
     const roleElem = document.getElementById("sidebar-user-role");
@@ -1505,6 +1511,10 @@ const initNavigation = () => {
       ? `<i class="fa-solid fa-sun"></i> <span>Light Mode</span>`
       : `<i class="fa-solid fa-moon"></i> <span>Dark Mode</span>`;
   });
+
+  document
+    .getElementById("manage-categories-btn")
+    ?.addEventListener("click", openCategoryManager);
 };
 
 const initAppListeners = () => {
@@ -2101,6 +2111,77 @@ const populateCategoryDropdowns = () => {
 
   if (invSelect) invSelect.innerHTML = options;
   if (posSelect) posSelect.innerHTML = options;
+};
+
+const openCategoryManager = () => {
+  const modalContainer = document.getElementById("modal-container");
+  const modalContent = document.getElementById("modal-content");
+  if (!modalContainer || !modalContent) return;
+
+  modalContent.innerHTML = `
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-layer-group"></i> Manage Categories</h3>
+      <button class="icon-btn" type="button" onclick="window.closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="category-form">
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="new-category-name">Add Category</label>
+          <div class="button-group">
+            <input type="text" id="new-category-name" placeholder="Example: Cosmetics" maxlength="40" required>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Available Categories</label>
+          <div id="category-list" class="category-manager-list"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="window.closeModal()">Close</button>
+      </div>
+    </form>
+  `;
+  modalContainer.classList.remove("hidden");
+
+  const categoryList = document.getElementById("category-list");
+  const renderCategoryList = () => {
+    if (!categoryList) return;
+    categoryList.innerHTML = "";
+    state.categories.forEach((category) => {
+      const item = document.createElement("span");
+      item.className = "chip";
+      item.textContent = category;
+      categoryList.appendChild(item);
+    });
+  };
+
+  document.getElementById("category-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const input = document.getElementById("new-category-name");
+    const category = input?.value.trim() || "";
+    if (!category) return;
+    if (state.categories.some((item) => item.toLowerCase() === category.toLowerCase())) {
+      showToast("That category already exists.", "error");
+      return;
+    }
+
+    try {
+      const categories = [...state.categories, category];
+      await updateDoc(doc(db, "businesses", businessId), { categories });
+      state.categories = categories;
+      currentBusiness = { ...currentBusiness, categories };
+      populateCategoryDropdowns();
+      renderCategoryChips();
+      renderCategoryList();
+      if (input) input.value = "";
+      showToast(`${category} category added.`, "success");
+    } catch (error) {
+      showToast(`Unable to add category: ${error.message}`, "error");
+    }
+  });
+
+  renderCategoryList();
 };
 
 const renderCategoryChips = () => {
