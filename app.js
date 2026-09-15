@@ -850,6 +850,18 @@ const populatePrintWindowContent = (
               <span>Subtotal:</span>
               <span>Rs. ${Number(saleData.subtotal || 0).toFixed(2)}</span>
             </div>
+            ${saleData.discount > 0 ? `
+            <div class="totals-row">
+              <span>Discount:</span>
+              <span>-Rs. ${Number(saleData.discount || 0).toFixed(2)}</span>
+            </div>
+            ` : ""}
+            ${saleData.taxAmount > 0 ? `
+            <div class="totals-row">
+              <span>Tax/GST:</span>
+              <span>Rs. ${Number(saleData.taxAmount || 0).toFixed(2)}</span>
+            </div>
+            ` : ""}
             <div class="totals-row grand">
               <span>Grand Total:</span>
               <span>Rs. ${Number(saleData.grandTotal || 0).toFixed(2)}</span>
