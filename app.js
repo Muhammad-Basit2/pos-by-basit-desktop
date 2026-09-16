@@ -709,6 +709,14 @@ const populatePrintWindowContent = (
             border: none;
           }
           .center { text-align: center; }
+          .shop-logo {
+            display: block;
+            width: auto;
+            max-width: 58mm;
+            max-height: 24mm;
+            margin: 0 auto 5px;
+            object-fit: contain;
+          }
           .shop-name {
             font-size: 20px;
             font-weight: 800;
@@ -821,6 +829,7 @@ const populatePrintWindowContent = (
       <body>
         <div class="receipt-box">
           <div class="center">
+            ${currentBusiness?.logoDataUrl ? `<img class="shop-logo" src="${currentBusiness.logoDataUrl}" alt="Shop logo">` : ""}
             <div class="shop-name">${currentBusiness?.shopName || "BASIT K/S"}</div>
             <div class="phone">Phone: ${currentBusiness?.phone || "03xxxxxxxxx"}</div>
           </div>
