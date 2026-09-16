@@ -502,6 +502,9 @@ const populatePrintWindowContent = (
   const logoContent = currentBusiness?.logoDataUrl
     ? `<img src="${currentBusiness.logoDataUrl}" alt="Shop logo">`
     : `<h1>${currentBusiness?.shopName || "PAKPOS"}</h1>`;
+  const invoiceAddressContent = currentBusiness?.showAddressOnInvoice !== false && currentBusiness?.address
+    ? `<div class="invoice-address">Address: ${currentBusiness.address}</div>`
+    : "";
 
   const subtotalForCalc = saleData.subtotal || 0;
 
@@ -569,6 +572,7 @@ const populatePrintWindowContent = (
             .signature .sig-line { border-top:1px dashed #aab8bf; width:180px; margin-top:24px; }
             .payment .methods { text-align:right; line-height:1.8; }
             .inv-footer { text-align:center; margin-top:24px; font-size:11px; color:#64748b; border-top:1px solid #dbe4e8; padding-top:12px; }
+            .invoice-address { font-size:13px; font-weight:600; margin-bottom:4px; }
             @media print { body { background:#fff; padding:0; } .invoice-wrap { box-shadow:none; } }
           </style>
         </head>
@@ -638,7 +642,8 @@ const populatePrintWindowContent = (
             </div>
 
             <div class="inv-footer">
-              <div>${currentBusiness?.address || ""} • Phone: ${currentBusiness?.phone || ""}</div>
+              ${currentBusiness?.showAddressOnInvoice !== false && currentBusiness?.address ? `<div class="invoice-address">${currentBusiness.address}</div>` : ""}
+              <div>Phone: ${currentBusiness?.phone || ""}</div>
               <div class="urdu-text" dir="auto">${currentBusiness?.invoiceFooter || ""}</div>
             </div>
           </div>
@@ -730,6 +735,12 @@ const populatePrintWindowContent = (
             line-height: 1.2;
             margin-top: 2px;
             color: #111;
+          }
+          .invoice-address {
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-top: 4px;
           }
           .rule {
             border-top: 1.5px dashed #111;
@@ -832,6 +843,7 @@ const populatePrintWindowContent = (
             ${currentBusiness?.logoDataUrl ? `<img class="shop-logo" src="${currentBusiness.logoDataUrl}" alt="Shop logo">` : ""}
             <div class="shop-name">${currentBusiness?.shopName || "BASIT K/S"}</div>
             <div class="phone">Phone: ${currentBusiness?.phone || "03xxxxxxxxx"}</div>
+            ${invoiceAddressContent}
           </div>
 
           <div class="rule"></div>
@@ -1330,6 +1342,7 @@ const loadUserProfileAndBusiness = async () => {
         ownerName: currentUser.displayName || "Admin",
         phone: "",
         address: "",
+        showAddressOnInvoice: true,
         tax: 0,
         createdAt: serverTimestamp(),
       });
@@ -1357,6 +1370,7 @@ const loadUserProfileAndBusiness = async () => {
         ownerName: "Admin",
         phone: "",
         address: "",
+        showAddressOnInvoice: true,
         tax: 0,
       };
     }
@@ -1376,6 +1390,7 @@ const loadUserProfileAndBusiness = async () => {
     const setShopName = document.getElementById("set-shop-name");
     const setShopPhone = document.getElementById("set-shop-phone");
     const setShopAddress = document.getElementById("set-shop-address");
+    const setShowAddressOnInvoice = document.getElementById("set-show-address-invoice");
     const setShopTax = document.getElementById("set-shop-tax");
     const setInvoiceFooter = document.getElementById("set-invoice-footer");
     const logoPreview = document.getElementById("shop-logo-preview");
@@ -1383,6 +1398,7 @@ const loadUserProfileAndBusiness = async () => {
     if (setShopName) setShopName.value = currentBusiness.shopName || "";
     if (setShopPhone) setShopPhone.value = currentBusiness.phone || "";
     if (setShopAddress) setShopAddress.value = currentBusiness.address || "";
+    if (setShowAddressOnInvoice) setShowAddressOnInvoice.checked = currentBusiness.showAddressOnInvoice !== false;
     if (setShopTax) setShopTax.value = currentBusiness.tax || 0;
     if (setInvoiceFooter) setInvoiceFooter.value = currentBusiness.invoiceFooter || "";
     if (logoPreview && currentBusiness.logoDataUrl) {
@@ -1726,6 +1742,7 @@ const initAppListeners = () => {
         const shopName = document.getElementById("set-shop-name").value;
         const phone = document.getElementById("set-shop-phone").value;
         const address = document.getElementById("set-shop-address").value;
+        const showAddressOnInvoice = document.getElementById("set-show-address-invoice")?.checked !== false;
         const invoiceFooter = document.getElementById("set-invoice-footer").value;
         const tax =
           parseFloat(document.getElementById("set-shop-tax").value) || 0;
@@ -1741,6 +1758,7 @@ const initAppListeners = () => {
           shopName,
           phone,
           address,
+          showAddressOnInvoice,
           tax,
           invoiceFooter,
           logoDataUrl,
