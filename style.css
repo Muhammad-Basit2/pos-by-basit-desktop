@@ -94,6 +94,17 @@ body {
   background: var(--card-bg);
 }
 
+#set-logo-size {
+  width: 100%;
+  margin-top: 8px;
+  accent-color: var(--accent-color);
+}
+
+#set-logo-size-value {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
 .logo-remove-option {
   display: flex;
   align-items: center;

@@ -499,6 +499,9 @@ const populatePrintWindowContent = (
 ) => {
   if (!printWindow) return;
 
+  const logoSize = Math.min(250, Math.max(50, Number(currentBusiness?.logoSize) || 100));
+  const logoSizeRatio = logoSize / 100;
+
   const logoContent = currentBusiness?.logoDataUrl
     ? `<img src="${currentBusiness.logoDataUrl}" alt="Shop logo">`
     : `<h1>${currentBusiness?.shopName || "PAKPOS"}</h1>`;
@@ -548,7 +551,7 @@ const populatePrintWindowContent = (
             .inv-header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding-bottom:22px; border-bottom:1px solid #dbe4e8; }
             .inv-title { flex:1; order:1; text-align:left; }
             .inv-title h1 { margin:0 0 8px; font-size:${shopFontSize}; letter-spacing:.2px; color:#0f766e; }
-            .inv-title img { display:block; width:auto; max-width:150px; max-height:58px; margin:0 0 8px; object-fit:contain; object-position:left center; }
+            .inv-title img { display:block; width:auto; max-width:min(${150 * logoSizeRatio}px, 100%); max-height:${58 * logoSizeRatio}px; margin:0 0 8px; object-fit:contain; object-position:left center; }
             .inv-title h4 { margin:0 0 8px; font-size:${titleSize}; line-height:1; font-weight:800; letter-spacing:1px; color:#17212b; }
             .inv-title span { color:#64748b; font-size:12px; }
             .inv-meta { order:3; flex:1; text-align:right; font-size:12px; line-height:1.8; color:#64748b; }
@@ -717,8 +720,8 @@ const populatePrintWindowContent = (
           .shop-logo {
             display: block;
             width: auto;
-            max-width: 58mm;
-            max-height: 24mm;
+            max-width: min(${58 * logoSizeRatio}mm, 100%);
+            max-height: ${24 * logoSizeRatio}mm;
             margin: 0 auto 5px;
             object-fit: contain;
           }
@@ -1393,6 +1396,8 @@ const loadUserProfileAndBusiness = async () => {
     const setShowAddressOnInvoice = document.getElementById("set-show-address-invoice");
     const setShopTax = document.getElementById("set-shop-tax");
     const setInvoiceFooter = document.getElementById("set-invoice-footer");
+    const setLogoSize = document.getElementById("set-logo-size");
+    const setLogoSizeValue = document.getElementById("set-logo-size-value");
     const logoPreview = document.getElementById("shop-logo-preview");
 
     if (setShopName) setShopName.value = currentBusiness.shopName || "";
@@ -1401,6 +1406,8 @@ const loadUserProfileAndBusiness = async () => {
     if (setShowAddressOnInvoice) setShowAddressOnInvoice.checked = currentBusiness.showAddressOnInvoice !== false;
     if (setShopTax) setShopTax.value = currentBusiness.tax || 0;
     if (setInvoiceFooter) setInvoiceFooter.value = currentBusiness.invoiceFooter || "";
+    if (setLogoSize) setLogoSize.value = Math.min(250, Math.max(50, Number(currentBusiness.logoSize) || 100));
+    if (setLogoSizeValue) setLogoSizeValue.textContent = `${setLogoSize?.value || 100}%`;
     if (logoPreview && currentBusiness.logoDataUrl) {
       logoPreview.src = currentBusiness.logoDataUrl;
       logoPreview.classList.remove("hidden");
@@ -1744,6 +1751,7 @@ const initAppListeners = () => {
         const address = document.getElementById("set-shop-address").value;
         const showAddressOnInvoice = document.getElementById("set-show-address-invoice")?.checked !== false;
         const invoiceFooter = document.getElementById("set-invoice-footer").value;
+        const logoSize = Math.min(250, Math.max(50, Number(document.getElementById("set-logo-size")?.value) || 100));
         const tax =
           parseFloat(document.getElementById("set-shop-tax").value) || 0;
         const logoFile = document.getElementById("set-shop-logo")?.files?.[0];
@@ -1761,6 +1769,7 @@ const initAppListeners = () => {
           showAddressOnInvoice,
           tax,
           invoiceFooter,
+          logoSize,
           logoDataUrl,
         };
         await updateDoc(doc(db, "businesses", businessId), businessUpdate);
@@ -1784,6 +1793,11 @@ const initAppListeners = () => {
       preview.classList.remove("hidden");
     };
     reader.readAsDataURL(file);
+  });
+
+  document.getElementById("set-logo-size")?.addEventListener("input", (event) => {
+    const value = document.getElementById("set-logo-size-value");
+    if (value) value.textContent = `${event.target.value}%`;
   });
 
   document
@@ -3891,21 +3905,26 @@ window.openCustomerLedger = (id) => {
       <div class="table-responsive"><table class="data-table"><thead><tr><th>Date</th><th>Type</th><th>Reference</th><th>Amount</th></tr></thead><tbody id="customer-ledger-body"></tbody></table></div>
       <p style="text-align:right;margin-top:12px"><strong>Period Balance: <span id="customer-ledger-total"></span></strong></p>
     </div>
-    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="window.closeModal()">Close</button><button type="button" class="btn btn-primary" id="print-customer-ledger"><i class="fa-solid fa-print"></i> Print Ledger</button></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="window.closeModal()">Close</button><button type="button" class="btn btn-primary" id="print-customer-ledger"><i class="fa-solid fa-print"></i> Print Ledger</button><button type="button" class="btn btn-secondary" id="print-customer-ledger-thermal"><i class="fa-solid fa-receipt"></i> Print Thermal</button></div>
   `;
   modalContainer.classList.remove("hidden");
   document.getElementById("ledger-from-date")?.addEventListener("change", renderLedger);
   document.getElementById("ledger-to-date")?.addEventListener("change", renderLedger);
-  document.getElementById("print-customer-ledger")?.addEventListener("click", () => {
+  const printCustomerLedger = (thermal = false) => {
     const fromDate = document.getElementById("ledger-from-date")?.value || "Any date";
     const toDate = document.getElementById("ledger-to-date")?.value || "Any date";
-    const printWindow = window.open("", "_blank", "width=700,height=700");
+    const printWindow = window.open("", "_blank", thermal ? "width=400,height=700" : "width=700,height=700");
     if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>Udhaar Ledger - ${cust.name}</title><style>body{font-family:Arial;padding:24px}h2{text-align:center}table{width:100%;border-collapse:collapse}th,td{padding:10px;border:1px solid #ccc;text-align:left}.amount{text-align:right}</style></head><body><h2>Udhaar Ledger</h2><p><strong>Customer:</strong> ${cust.name}</p><p><strong>From:</strong> ${fromDate} &nbsp; <strong>To:</strong> ${toDate}</p><table>${document.querySelector("#customer-ledger-body")?.closest("table")?.innerHTML || ""}</table><p><strong>Current Udhaar: ${formatCurrency(cust.balance)}</strong></p></body></html>`);
+    const pageStyle = thermal
+      ? `@page{size:80mm auto;margin:3mm}body{width:80mm;box-sizing:border-box;font-family:monospace;font-size:10px;margin:0;padding:4px;color:#111}h2{text-align:center;font-size:15px;margin:0 0 8px}.details{line-height:1.5;margin-bottom:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:4px 1px;border-bottom:1px dashed #111;text-align:left;word-break:break-word}th{font-size:9px}td{font-size:9px}th:nth-child(1),td:nth-child(1){width:19%}th:nth-child(2),td:nth-child(2){width:24%}th:nth-child(3),td:nth-child(3){width:37%}th:nth-child(4),td:nth-child(4){width:20%;text-align:right}.balance{border-top:1px solid #111;margin-top:8px;padding-top:6px;font-size:10px}`
+      : `body{font-family:Arial;padding:24px}h2{text-align:center}table{width:100%;border-collapse:collapse}th,td{padding:10px;border:1px solid #ccc;text-align:left}.amount{text-align:right}`;
+    printWindow.document.write(`<html><head><title>Udhaar Ledger - ${cust.name}</title><style>${pageStyle}</style></head><body><h2>Udhaar Ledger</h2><div class="details"><strong>Customer:</strong> ${cust.name}<br><strong>From:</strong> ${fromDate}<br><strong>To:</strong> ${toDate}</div><table>${document.querySelector("#customer-ledger-body")?.closest("table")?.innerHTML || ""}</table><div class="balance"><strong>Current Udhaar: ${formatCurrency(cust.balance)}</strong></div></body></html>`);
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
-  });
+  };
+  document.getElementById("print-customer-ledger")?.addEventListener("click", () => printCustomerLedger(false));
+  document.getElementById("print-customer-ledger-thermal")?.addEventListener("click", () => printCustomerLedger(true));
   renderLedger();
 };
 
@@ -4021,19 +4040,24 @@ window.openSupplierLedger = (id) => {
       <div class="table-responsive"><table class="data-table"><thead><tr><th>Date</th><th>Invoice</th><th>Purchase</th><th>Paid</th><th>Payable</th></tr></thead><tbody id="supplier-ledger-body"></tbody></table></div>
       <p id="supplier-ledger-totals" style="text-align:right;margin-top:12px"></p>
     </div>
-    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="window.closeModal()">Close</button><button type="button" class="btn btn-primary" id="print-supplier-ledger"><i class="fa-solid fa-print"></i> Print Ledger</button></div>
+    <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="window.closeModal()">Close</button><button type="button" class="btn btn-primary" id="print-supplier-ledger"><i class="fa-solid fa-print"></i> Print Ledger</button><button type="button" class="btn btn-secondary" id="print-supplier-ledger-thermal"><i class="fa-solid fa-receipt"></i> Print Thermal</button></div>
   `;
   modalContainer.classList.remove("hidden");
   document.getElementById("supplier-ledger-from")?.addEventListener("change", renderLedger);
   document.getElementById("supplier-ledger-to")?.addEventListener("change", renderLedger);
-  document.getElementById("print-supplier-ledger")?.addEventListener("click", () => {
-    const printWindow = window.open("", "_blank", "width=800,height=700");
+  const printSupplierLedger = (thermal = false) => {
+    const printWindow = window.open("", "_blank", thermal ? "width=400,height=700" : "width=800,height=700");
     if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>Supplier Ledger - ${supplier.companyName}</title><style>body{font-family:Arial;padding:24px}h2{text-align:center}table{width:100%;border-collapse:collapse}th,td{padding:10px;border:1px solid #ccc;text-align:left}</style></head><body><h2>Supplier Ledger</h2><p><strong>Supplier:</strong> ${supplier.companyName}</p><p><strong>From:</strong> ${document.getElementById("supplier-ledger-from")?.value || "Any date"} &nbsp; <strong>To:</strong> ${document.getElementById("supplier-ledger-to")?.value || "Any date"}</p><table><thead><tr><th>Date</th><th>Invoice</th><th>Purchase</th><th>Paid</th><th>Payable</th></tr></thead>${document.getElementById("supplier-ledger-body")?.innerHTML || ""}</table><p>${document.getElementById("supplier-ledger-totals")?.innerHTML || ""}</p></body></html>`);
+    const pageStyle = thermal
+      ? `@page{size:80mm auto;margin:3mm}body{width:80mm;box-sizing:border-box;font-family:monospace;font-size:10px;margin:0;padding:4px;color:#111}h2{text-align:center;font-size:15px;margin:0 0 8px}.details{line-height:1.5;margin-bottom:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:4px 1px;border-bottom:1px dashed #111;text-align:left;word-break:break-word}th{font-size:9px}td{font-size:9px}th:nth-child(1),td:nth-child(1){width:19%}th:nth-child(2),td:nth-child(2){width:21%}th:nth-child(3),td:nth-child(3){width:20%;text-align:right}th:nth-child(4),td:nth-child(4){width:20%;text-align:right}th:nth-child(5),td:nth-child(5){width:20%;text-align:right}.totals{border-top:1px solid #111;margin-top:8px;padding-top:6px;font-size:10px}`
+      : `body{font-family:Arial;padding:24px}h2{text-align:center}table{width:100%;border-collapse:collapse}th,td{padding:10px;border:1px solid #ccc;text-align:left}`;
+    printWindow.document.write(`<html><head><title>Supplier Ledger - ${supplier.companyName}</title><style>${pageStyle}</style></head><body><h2>Supplier Ledger</h2><div class="details"><strong>Supplier:</strong> ${supplier.companyName}<br><strong>From:</strong> ${document.getElementById("supplier-ledger-from")?.value || "Any date"}<br><strong>To:</strong> ${document.getElementById("supplier-ledger-to")?.value || "Any date"}</div><table><thead><tr><th>Date</th><th>Invoice</th><th>Purchase</th><th>Paid</th><th>Payable</th></tr></thead>${document.getElementById("supplier-ledger-body")?.innerHTML || ""}</table><div class="totals">${document.getElementById("supplier-ledger-totals")?.innerHTML || ""}</div></body></html>`);
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
-  });
+  };
+  document.getElementById("print-supplier-ledger")?.addEventListener("click", () => printSupplierLedger(false));
+  document.getElementById("print-supplier-ledger-thermal")?.addEventListener("click", () => printSupplierLedger(true));
   renderLedger();
 };
 
