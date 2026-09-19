@@ -461,6 +461,31 @@ const normalizeToStandardUnit = (qty, unit) => {
   return parsedQty;
 };
 
+const splitNameByScript = (name) => {
+  const latin = [];
+  const urdu = [];
+  let currentScript = null;
+  let buffer = "";
+  const flush = () => {
+    const cleaned = buffer.replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, "");
+    if (cleaned) (currentScript === "urdu" ? urdu : latin).push(cleaned);
+    buffer = "";
+  };
+  for (const ch of String(name || "")) {
+    if (/[\u0600-\u06FF]/.test(ch)) {
+      if (currentScript !== "urdu") { flush(); currentScript = "urdu"; }
+      buffer += ch;
+    } else if (/[A-Za-z0-9.]/.test(ch)) {
+      if (currentScript !== "latin") { flush(); currentScript = "latin"; }
+      buffer += ch;
+    } else {
+      buffer += ch; // spaces, brackets, dashes stay attached to the current run
+    }
+  }
+  flush();
+  return { latin: latin.join(" "), urdu: urdu.join(" ") };
+};
+
 const readLogoFile = (file) =>
   new Promise((resolve, reject) => {
     if (!file) return resolve("");
@@ -516,7 +541,7 @@ const populatePrintWindowContent = (
       return `
       <tr>
         <td style="padding:6px 8px;">${idx + 1}</td>
-        <td style="padding:6px 8px;">${item.name}</td>
+        <td style="padding:6px 8px;">${/[\u0600-\u06FF]/.test(String(item.name || "")) ? `<span class="urdu-text" style="font-size:13px;">${item.name}</span>` : item.name}</td>
         <td style="padding:6px 8px; text-align:right;">${formatCurrency(item.sellingPrice)}</td>
         <td style="padding:6px 8px; text-align:center;">${item.qty}</td>
         <td style="padding:6px 8px; text-align:center;">${subtotalForCalc ? (((item.lineTotal || 0) / subtotalForCalc) * (saleData.taxAmount || 0)).toFixed(2) : "0.00"}</td>
@@ -542,11 +567,11 @@ const populatePrintWindowContent = (
           <meta charset="utf-8">
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Gulzar&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
           <style>
             ${pageCss}
             body { font-family: 'Inter', 'Noto Nastaliq Urdu', sans-serif; color:#17212b; margin:0; padding:18px; display:flex; justify-content:center; background:#f3f6f8; }
-            .urdu-text { font-family: 'Noto Nastaliq Urdu', serif; direction: rtl; line-height: 2; }
+            .urdu-text { font-family: 'Gulzar', 'Noto Nastaliq Urdu', serif; direction: rtl; line-height: 2.1; font-size: 13px; }
             .invoice-wrap { width:100%; max-width:${containerMaxWidth}; border-top:5px solid #0f766e; padding:28px; background:#fff; box-sizing:border-box; box-shadow:0 8px 24px rgba(15,23,42,.08); }
             .inv-header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding-bottom:22px; border-bottom:1px solid #dbe4e8; }
             .inv-title { flex:1; order:1; text-align:left; }
@@ -693,7 +718,7 @@ const populatePrintWindowContent = (
         <meta charset="utf-8">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Gulzar&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
         <style>
           ${pageCss}
           body {
@@ -774,7 +799,7 @@ const populatePrintWindowContent = (
           }
           .items td {
             padding: 7px 2px;
-            font-size: 13px;
+            font-size: 17px;
             vertical-align: top;
             color: #111;
           }
@@ -788,26 +813,30 @@ const populatePrintWindowContent = (
             padding-right: 4px;
           }
           .item-name.urdu {
-            font-family: 'Noto Nastaliq Urdu', serif;
+            font-family: 'Gulzar', 'Noto Nastaliq Urdu', serif;
             direction: rtl;
             unicode-bidi: plaintext;
             text-align: left;
-            font-size: 16px;
-            line-height: 1.25;
-            font-weight: 700;
-            letter-spacing: 0.1px;
+            font-size: 17px;
+            line-height: 1.8;
+            font-weight: 800;
+            letter-spacing: 0;
+            padding: 9px 2px 1px;
           }
+          tr.item-row-mix, tr.item-row-urdu-amount { border-bottom: none; }
+          tr.item-row-end { border-bottom: 1px solid #111; }
+          tr.item-row-urdu-amount td { padding-top: 0; padding-bottom: 7px; }
           .item-amount {
             width: 30%;
             text-align: right;
             font-weight: 700;
-            font-size: 15px;
+            font-size: 17px;
           }
           .totals {
             width: 100%;
             margin-top: 10px;
-            font-size: 13px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 800;
           }
           .totals-row {
             display: flex;
@@ -822,7 +851,7 @@ const populatePrintWindowContent = (
             padding-top: 8px;
             margin-top: 4px;
             font-weight: 900;
-            font-size: 16px;
+            font-size: 17px;
           }
           .footer {
             margin-top: 12px;
@@ -832,11 +861,11 @@ const populatePrintWindowContent = (
             font-style: italic;
           }
           .urdu-text {
-            font-family: 'Noto Nastaliq Urdu', serif;
+            font-family: 'Gulzar', 'Noto Nastaliq Urdu', serif;
             direction: rtl;
-            font-size: 13px;
+            font-size: 12px;
             margin-top: 8px;
-            line-height: 1.6;
+            line-height: 1.9;
           }
         </style>
       </head>
@@ -859,11 +888,41 @@ const populatePrintWindowContent = (
 
           <table class="items">
             ${saleData.items.map((item) => {
-              const isUrduItem = /[\u0600-\u06FF]/.test(String(item.name || ""));
+              const amountCell = `<td class="item-amount">Rs. ${Number(item.lineTotal || 0).toFixed(2)}</td>`;
+              const qtyLabel = item.qty > 1 ? `(${item.qty})` : "";
+              const { latin, urdu } = splitNameByScript(item.name);
+
+              // Pure English / numeric name -> single line (unchanged)
+              if (!urdu) {
+                return `
+                  <tr>
+                    <td class="item-name">${item.name} ${qtyLabel}</td>
+                    ${amountCell}
+                  </tr>
+                `;
+              }
+
+              // Pure Urdu name -> name line, then amount line
+              if (!latin) {
+                return `
+                  <tr>
+                    <td colspan="2" class="item-name urdu">${item.name} ${qtyLabel}</td>
+                  </tr>
+                  <tr class="item-row-urdu-amount item-row-end">
+                    <td></td>
+                    ${amountCell}
+                  </tr>
+                `;
+              }
+
+              // Mixed name -> English on line 1 (with amount), Urdu on line 2
               return `
-                <tr>
-                  <td class="item-name ${isUrduItem ? 'urdu' : ''}">${item.name} ${item.qty > 1 ? `(${item.qty})` : ""}</td>
-                  <td class="item-amount">Rs. ${Number(item.lineTotal || 0).toFixed(2)}</td>
+                <tr class="item-row-mix">
+                  <td class="item-name">${latin} ${qtyLabel}</td>
+                  ${amountCell}
+                </tr>
+                <tr class="item-row-end">
+                  <td colspan="2" class="item-name urdu">${urdu}</td>
                 </tr>
               `;
             }).join("")}
