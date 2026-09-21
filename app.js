@@ -400,6 +400,25 @@ const formatCurrency = (amount) => {
   );
 };
 
+
+// Formats qty together with its unit for invoices (e.g. "0.5 KG", "250 g", "3 Pack")
+const WEIGHTED_UNITS = ["kg", "kilo", "kilogram", "gram", "g", "liter", "litre", "l", "ml", "milliliter"];
+
+const isWeightedUnit = (unit) =>
+  WEIGHTED_UNITS.includes(String(unit || "").trim().toLowerCase());
+
+// Formats qty together with its unit for invoices (e.g. "0.5 KG", "250 g", "3 Pack")
+const formatQtyWithUnit = (qty, unit) => {
+  const value = parseFloat(qty);
+  const safeUnit = String(unit || "pcs").trim();
+  if (!Number.isFinite(value)) return `0 ${safeUnit}`;
+  const trimmed = Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/\.?0+$/, "");
+  const unitLabel = safeUnit.toLowerCase() === "gram" ? "g" : safeUnit;
+  return `${trimmed} ${unitLabel}`;
+};
+
 const showToast = (message, type = "info") => {
   const container = document.getElementById("toast-container");
   if (!container) return;
@@ -542,8 +561,8 @@ const populatePrintWindowContent = (
       <tr>
         <td style="padding:6px 8px;">${idx + 1}</td>
         <td style="padding:6px 8px;">${/[\u0600-\u06FF]/.test(String(item.name || "")) ? `<span class="urdu-text" style="font-size:13px;">${item.name}</span>` : item.name}</td>
-        <td style="padding:6px 8px; text-align:right;">${formatCurrency(item.sellingPrice)}</td>
-        <td style="padding:6px 8px; text-align:center;">${item.qty}</td>
+        <td style="padding:6px 8px; text-align:right;">${formatCurrency(item.sellingPrice)}<div style="font-size:10px;color:#64748b;">per ${item.unit || "pcs"}</div></td>
+        <td style="padding:6px 8px; text-align:center;">${formatQtyWithUnit(item.qty, item.unit)}</td>
         <td style="padding:6px 8px; text-align:center;">${subtotalForCalc ? (((item.lineTotal || 0) / subtotalForCalc) * (saleData.taxAmount || 0)).toFixed(2) : "0.00"}</td>
         <td style="padding:6px 8px; text-align:right;">${formatCurrency(item.lineTotal)}</td>
       </tr>
@@ -691,7 +710,7 @@ const populatePrintWindowContent = (
     .map(
       (item) => `
     <tr>
-      <td style="width:70%;">${item.name} (${item.qty} ${item.unit})</td>
+      <td style="width:70%;">${item.name} (${formatQtyWithUnit(item.qty, item.unit)})</td>
       <td style="text-align: right; width:30%;">${formatCurrency(item.lineTotal)}</td>
     </tr>
   `,
@@ -889,7 +908,11 @@ const populatePrintWindowContent = (
           <table class="items">
             ${saleData.items.map((item) => {
               const amountCell = `<td class="item-amount">Rs. ${Number(item.lineTotal || 0).toFixed(2)}</td>`;
-              const qtyLabel = item.qty > 1 ? `(${item.qty})` : "";
+              const isWeighted = isWeightedUnit(item.unit);
+              const rawQty = parseFloat(item.qty);
+              const qtyLabel = isWeighted || !Number.isInteger(rawQty) || rawQty > 1
+                ? `(${formatQtyWithUnit(item.qty, item.unit)})`
+                : "";
               const { latin, urdu } = splitNameByScript(item.name);
 
               // Pure English / numeric name -> single line (unchanged)
