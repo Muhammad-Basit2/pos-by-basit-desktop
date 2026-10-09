@@ -400,6 +400,8 @@ const formatCurrency = (amount) => {
   );
 };
 
+const padDatePart = (n) => String(n).padStart(2, "0");
+
 
 // Formats qty together with its unit for invoices (e.g. "0.5 KG", "250 g", "3 Pack")
 const WEIGHTED_UNITS = ["kg", "kilo", "kilogram", "gram", "g", "liter", "litre", "l", "ml", "milliliter"];
@@ -1734,8 +1736,7 @@ const initAppListeners = () => {
       const balanceDue = grandTotal > paidAmount ? grandTotal - paidAmount : 0;
       const customerId =
         document.getElementById("pos-customer-select")?.value || "WALKIN";
-      const customerObj = state.customers.find((c) => c.id === customerId);
-      const customerName = customerObj ? customerObj.name : "Walk-in Customer";
+      const customerName = getCustomerName();
 
       const salePreview = {
         invoiceNumber: "INV-" + Math.floor(1000 + Math.random() * 9000),
@@ -1783,10 +1784,9 @@ const initAppListeners = () => {
       const balanceDue = grandTotal > paidAmount ? grandTotal - paidAmount : 0;
       const customerId =
         document.getElementById("pos-customer-select")?.value || "WALKIN";
-      const customerObj = state.customers.find((customer) => customer.id === customerId);
       const saleData = {
         invoiceNumber: "INV-" + Math.floor(1000 + Math.random() * 9000),
-        customerName: customerObj ? customerObj.name : "Walk-in Customer",
+        customerName: getCustomerName(),
         items: saleItems,
         subtotal,
         discount,
@@ -1952,6 +1952,16 @@ const initAppListeners = () => {
     ?.addEventListener("click", () => {
       document.getElementById("add-customer-btn")?.click();
     });
+
+  const posCustomerSelect = document.getElementById("pos-customer-select");
+  if (posCustomerSelect) {
+    posCustomerSelect.addEventListener("change", () => {
+      const walkinInput = document.getElementById("pos-walkin-customer-name");
+      if (walkinInput) {
+        walkinInput.style.display = posCustomerSelect.value === "WALKIN" ? "block" : "none";
+      }
+    });
+  }
 
   document
     .getElementById("generate-report-btn")
@@ -2344,7 +2354,7 @@ const renderSalesHistoryTable = () => {
     const matchesSearch = [s.invoiceNumber, s.customerName, s.paymentMethod]
       .filter(Boolean)
       .some((value) => value.toString().toLowerCase().includes(search));
-    const matchesDate = !dateFilter || (date && date.toISOString().slice(0, 10) === dateFilter);
+    const matchesDate = !dateFilter || (date && padDatePart(date.getFullYear()) + "-" + padDatePart(date.getMonth() + 1) + "-" + padDatePart(date.getDate()) === dateFilter);
     return matchesSearch && matchesDate;
   }).forEach((s) => {
     const tr = document.createElement("tr");
@@ -2928,6 +2938,7 @@ const createInvoiceDraft = (number) => ({
   cart: [],
   customerId: "WALKIN",
   customerSearch: "",
+  walkinCustomerName: "",
   discount: 0,
   tax: 0,
   paidAmount: "",
@@ -2945,13 +2956,15 @@ const captureActiveInvoiceDraft = () => {
   draft.cart = state.cart.map((item) => ({ ...item }));
   draft.customerId = document.getElementById("pos-customer-select")?.value || "WALKIN";
   draft.customerSearch = document.getElementById("pos-customer-search")?.value || "";
+  draft.walkinCustomerName = document.getElementById("pos-walkin-customer-name")?.value || "";
   draft.discount = document.getElementById("pos-discount-input")?.value || "0";
   draft.tax = document.getElementById("pos-tax-input")?.value || "0";
   draft.paidAmount = document.getElementById("pos-paid-amount")?.value || "";
   draft.paymentMethod = document.getElementById("pos-payment-method")?.value || "Cash";
   draft.printFormat = document.getElementById("pos-print-format")?.value || "thermal";
   const customer = state.customers.find((item) => item.id === draft.customerId);
-  draft.customerName = customer?.name || "Walk-in Customer";
+  const walkinNameInput = document.getElementById("pos-walkin-customer-name");
+  draft.customerName = customer?.name || (draft.customerId === "WALKIN" ? (walkinNameInput?.value?.trim() || "Walk-in Customer") : "Walk-in Customer");
 };
 
 const renderOpenInvoiceDrafts = () => {
@@ -2976,6 +2989,11 @@ const applyInvoiceDraft = (draft) => {
   if (customerSearch) customerSearch.value = draft.customerSearch || "";
   renderPosCustomerDropdown();
   if (customerSelect) customerSelect.value = draft.customerId || "WALKIN";
+  const walkinNameInput = document.getElementById("pos-walkin-customer-name");
+  if (walkinNameInput && draft.customerId === "WALKIN") {
+    walkinNameInput.value = draft.walkinCustomerName || "";
+    walkinNameInput.style.display = "block";
+  }
   const setValue = (id, value) => {
     const element = document.getElementById(id);
     if (element) element.value = value;
@@ -3217,8 +3235,7 @@ document
         document.getElementById("pos-payment-method")?.value || "Cash";
       const customerId =
         document.getElementById("pos-customer-select")?.value || "WALKIN";
-      const customerObj = state.customers.find((c) => c.id === customerId);
-      const customerName = customerObj ? customerObj.name : "Walk-in Customer";
+      const customerName = getCustomerName();
       const operationId = makeOperationId();
       const localInvoiceNumber = `LOCAL-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${operationId.slice(-6)}`;
       const salePayload = {
@@ -3621,13 +3638,29 @@ const renderCustomersTable = () => {
   });
 };
 
+const getCustomerName = () => {
+  const select = document.getElementById("pos-customer-select");
+  const walkinInput = document.getElementById("pos-walkin-customer-name");
+  const customerId = select?.value || "WALKIN";
+  if (customerId === "WALKIN") {
+    return (walkinInput?.value || "").trim() || "Walk-in Customer";
+  }
+  const customerObj = state.customers.find((c) => c.id === customerId);
+  return customerObj?.name || "Unknown Customer";
+};
+
 const renderPosCustomerDropdown = () => {
   const select = document.getElementById("pos-customer-select");
+  const walkinInput = document.getElementById("pos-walkin-customer-name");
   if (!select) return;
   select.innerHTML = `<option value="WALKIN">Walk-in Customer (Grahak)</option>`;
   state.customers.forEach((c) => {
     select.innerHTML += `<option value="${c.id}">${c.name} (${c.phone || "No Phone"}) - Bal: ${formatCurrency(c.balance)}</option>`;
   });
+  // Show/hide walk-in name input based on selection
+  if (walkinInput) {
+    walkinInput.style.display = select.value === "WALKIN" ? "block" : "none";
+  }
 };
 
 const openCustomerModal = (customer = null) => {
