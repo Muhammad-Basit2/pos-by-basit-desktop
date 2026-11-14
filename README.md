@@ -15,7 +15,7 @@ npm install
 npm start
 ```
 
-The application uses the Firebase web configuration in `app.js`. Firebase web configuration values are designed to be public, but production deployments must use strict Firebase Authentication and Firestore Security Rules.
+The application uses the Firebase web configuration in `js/firebase-init.js`. Firebase web configuration values are designed to be public, but production deployments must use strict Firebase Authentication and Firestore Security Rules.
 
 ## Offline support
 
@@ -37,7 +37,11 @@ The installer and unpacked application are written to `dist/`. Build output is i
 
 - `index.js` - Electron main process and window setup
 - `index.html` - Application interface
-- `app.js` - Renderer logic and Firebase integration
+- `js/main.js` - Renderer entry point and application wiring
+- `js/firebase-init.js` - Firebase initialization and authentication
+- `js/state.js` and `js/utils.js` - Shared state, offline outbox, and utilities
+- `js/keyboard.js` and `js/pos.js` - Keyboard controls and point-of-sale workflows
+- `js/modules/` - Product, customer, supplier, and reporting features
 - `style.css` - Application styles
 - `assets/` - Application assets
 
